@@ -535,7 +535,7 @@ token-sprout/
 - [x] 英文與繁中 README（含 §7 安全聲明定稿、§12 FAQ、「不要寫進 shell rc」警告、支援範圍聲明）。
 - [x] logging 政策測試（不含 body、usage、auth headers）。
 - [ ] Demo GIF（發布後補，不阻擋 `v0.1.0`）。
-- [ ] 標記 `v0.1.0` release。
+- [x] 標記 `v0.1.0` release（tag `v0.1.0` + GitHub Release，附 wheel/sdist assets）。
 
 #### v0.1.0 發布裁決（2026-07-19）
 
