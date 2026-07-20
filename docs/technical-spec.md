@@ -13,7 +13,9 @@
 - **是什麼**：本機透明 proxy，攔截 Anthropic API response 的 token usage metadata，餵給一株終端機 ASCII 植物。
 - **最高工程原則**：**proxy 絕對不能弄壞 Claude Code**。所有設計決策以此為最優先，植物功能其次。
 - **架構一句話**：byte-level 透明轉發 + 旁路（tee）解析 usage + 單一 JSON state 檔 + 獨立 terminal UI。
-- **成敗關鍵**：不在植物，在 proxy 的透明度。Milestone 0 沒全數通過前，不寫任何遊戲程式碼。
+- **成敗關鍵**：不在植物，在 proxy 的透明度。`v0.1.0` 的發布基準是 macOS
+  真實 API key／訂閱 OAuth session、Esc 中斷，以及直連與 proxy 的手動串流
+  比較皆通過；儀器化 latency benchmark 留作發布後補強，不作為首版阻擋項。
 
 ---
 
@@ -130,11 +132,12 @@ shell path 規格：zsh 尊重 `ZDOTDIR`，否則寫 `~/.zshrc`；bash 在 macOS
 managed block 被 source 時再次檢查先前由其他檔案載入的 `claude` alias/function；
 未帶 `--force` 時保留使用者定義並印固定警告，不可默默覆蓋。
 
-v0.1 平台範圍為 macOS、Linux，以及 Windows 10/11 的 **WSL2 Linux
-環境**。Windows 使用者的 Claude Code、Python、Token Sprout 必須全部安裝並
-從同一個 WSL2 distro 啟動，才能共用 shell rc、localhost 與 Linux home 下的
-`0600`/`0700` 權限邊界。v0.1 不宣稱支援原生 Windows PowerShell/CMD；在
-WSL2 實機安裝清單通過前，README 必須標示該路徑尚待驗證。
+v0.1 的正式實機驗證基準是 macOS；Linux 的 zsh/bash 安裝與整合行為由 CI
+覆蓋。Windows 10/11 的 **WSL2 Linux 環境**列為實驗性支援：Windows 使用者的
+Claude Code、Python、Token Sprout 必須全部安裝並從同一個 WSL2 distro 啟動，
+才能共用 shell rc、localhost 與 Linux home 下的 `0600`/`0700` 權限邊界。
+v0.1 不宣稱支援原生 Windows PowerShell/CMD；WSL2 端到端實機清單通過前，
+英文與繁中 README 必須持續明確標示「實驗性／尚未實機驗證」。
 
 `run` 將 `ANTHROPIC_BASE_URL` 只注入 Claude 子行程，並在使用者沒有自行設定時
 補上 `ENABLE_TOOL_SEARCH=true`，因為 Claude Code 會把 localhost 視為非 first-party
@@ -487,10 +490,15 @@ token-sprout/
 
 - [x] 啟動 `127.0.0.1:8000` proxy，Claude Code 經 `ANTHROPIC_BASE_URL` 連上。
 - [x] **API key 模式**完整跑一個多輪 session（含工具呼叫）。
-- [ ] **訂閱 OAuth 模式**完整跑一個多輪 session（Claude Code 主流用法，不可跳過）。
-- [ ] 使用者按 Esc 中斷 streaming → Claude Code 行為與直連無異。
+- [x] **訂閱 OAuth 模式**完整跑一個多輪 session（macOS、VS Code 整合
+  terminal；含 Bash 工具呼叫與後續對話）。
+- [x] 使用者按 Esc 中斷 streaming → Claude Code 可繼續下一輪、植物不會卡在
+  thinking，行為與直連無異。
 - [x] 上游錯誤（用假 key 觸發 401；或模擬 429）→ 原樣透傳，client 正常顯示錯誤。
-- [ ] `curl -N` 實測 streaming 零緩衝：first-token 延遲與直連相當。
+- [x] macOS 真實 session 手動 A/B：以 `command claude` 直連與一般 `claude`
+  proxy 路徑比較，未觀察到可重複的明顯 first-token 延遲或批次輸出。
+- [ ] 儀器化 `curl -N` latency benchmark：列為發布後補強；`v0.1.0` 不發布
+  量化延遲數據，也不以此作為發布阻擋項。
 - [x] `/v1/messages/count_tokens`、`/v1/models` 等其他路徑正常透傳。
 - [x] Proxy 能從 SSE 擷取 `input_tokens` / `output_tokens` / cache 兩欄（usage 不寫 log，只進 state）。
 - [x] Fail-open 實測：故意讓解析器 crash、鎖住 state 檔 → 轉發照常成功。
@@ -502,7 +510,8 @@ token-sprout/
 - [x] atomic write（temp + rename）+ filelock。
 - [x] `active_requests` 計數與 usage 累積。
 - [x] level / stage / generation 計算（`game.py` 純函式 + 測試）。
-- [ ] **用一天真實流量回放校準升級曲線**（§5.4 硬性需求）。
+- [x] `v0.1` 採用使用者選定的長期累積曲線（10,000 × 20⁴ 才開花）；一天
+  真實流量回放改列發布後體感校準，不作為 correctness 或發布阻擋項。
 - [x] `token-sprout status`。
 
 ### Milestone 2 — Terminal UI
@@ -517,14 +526,25 @@ token-sprout/
 ### Milestone 3 — Packaging & Release
 
 - [x] `pyproject.toml`、CLI entry points、sdist/wheel build，以及乾淨 `pipx install .` 已實測；macOS Python 3.13 從本機 source 安裝到 `token-sprout --version` 為 28.91 秒，低於 5 分鐘門檻。
-- [ ] 仍需在已可用 `uvx` 的乾淨環境驗證同一個 5 分鐘門檻；本次發布檢查的 uv launcher 下載未能在執行環境的單次下載時間窗內完成，不可視為驗證通過。
-- [ ] Windows 10/11 + WSL2 Ubuntu 需完成一次從 Claude Code 安裝、`pipx install .`、shell integration 到真實 session 的端到端實機檢查。
+- [ ] `uvx` 乾淨環境驗證列為發布後工作；`v0.1.0` 只正式文件化並支援
+  `pipx` 安裝，不宣稱 `uvx` 已驗證。
+- [ ] Windows 10/11 + WSL2 Ubuntu 端到端實機檢查列為發布後工作；完成前
+  WSL2 必須維持「實驗性支援」標示。
 - [x] `token-sprout run -- claude` wrapper。
 - [x] `install-claude` / `uninstall-claude` managed shell function 與 plain `claude` UX。
 - [x] 英文與繁中 README（含 §7 安全聲明定稿、§12 FAQ、「不要寫進 shell rc」警告、支援範圍聲明）。
 - [x] logging 政策測試（不含 body、usage、auth headers）。
-- [ ] Demo GIF。
+- [ ] Demo GIF（發布後補，不阻擋 `v0.1.0`）。
 - [ ] 標記 `v0.1.0` release。
+
+#### v0.1.0 發布裁決（2026-07-19）
+
+- 正式人工驗證基準：macOS + Claude Code，API key 與訂閱 OAuth session、
+  工具呼叫、Esc 中斷及手動 direct/proxy 串流比較皆通過。
+- Linux shell 行為由 CI 覆蓋；Windows WSL2 在完成端到端實機檢查前屬實驗性。
+- 正式安裝路徑為從 GitHub source 使用 `pipx`；`uvx` 尚未列入支援承諾。
+- 一天成長體感校準、儀器化 latency benchmark 與 demo GIF 是發布後補強，
+  不阻擋首個正式 `v0.1.0`。
 
 > Issue / PR templates 不是發布阻擋項，發布後再補。
 
@@ -580,13 +600,15 @@ Just a local plant eating your tokens.
 
 ### GitHub Release 重點
 
-- 清楚 README + 一張 demo GIF。
+- 清楚 README + 技術流程圖；demo GIF 可於發布後補上。
 - §7 安全聲明。
 - 支援範圍聲明：
 
 ```text
-Currently tested with Claude Code (API key and subscription login) through
-ANTHROPIC_BASE_URL. Other Anthropic API clients may work but are untested.
+Manually tested on macOS with Claude Code (API key and subscription login)
+through ANTHROPIC_BASE_URL. Linux shell behavior is covered by CI. Windows
+WSL2 is experimental and not yet end-to-end verified. Other Anthropic API
+clients may work but are untested.
 ```
 
 ### 發布前必須準備好答案的問題（HN / Reddit 必問）
@@ -595,7 +617,7 @@ ANTHROPIC_BASE_URL. Other Anthropic API clients may work but are untested.
 |---|---|
 | 「為什麼要 MITM 我的 AI 流量？讀本地 log 不就好了？」 | §1 比較表：即時 thinking 訊號只有 proxy 拿得到；proxy < 300 行可自行稽核；transcript 格式未文件化且限 Claude Code |
 | 「我的 API key / OAuth token 安全嗎？」 | proxy 不讀、不記、不存憑證，原樣透傳；logging 政策有測試背書 |
-| 「會不會拖慢 Claude Code？」 | byte-level 零緩衝轉發，M0 有 first-token 延遲實測數據 |
+| 「會不會拖慢 Claude Code？」 | byte-level 零緩衝轉發；macOS 手動 direct/proxy A/B 未見可重複的明顯延遲或批次輸出，v0.1 不宣稱有量化 benchmark |
 | 「Claude Code 改版會不會壞？」 | catch-all 透傳對 schema 無假設；usage 解析失敗只是不計分，不影響使用 |
 | 「這不就是鼓勵浪費 token？」 | tongue-in-cheek 定位，文案自嘲比辯解有效 |
 

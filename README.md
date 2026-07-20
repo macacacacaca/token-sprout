@@ -12,27 +12,28 @@ while Claude is thinking.
 
 ![How Token Sprout works](docs/token-sprout-overview.svg)
 
-> **Status: pre-release (`0.1.0.dev0`).** Automated tests, package builds, and
-> local smoke tests are in place. Before `v0.1.0`, the remaining human checks
-> are a complete subscription-OAuth session, a real Esc interruption,
-> direct-vs-proxy first-token latency, one-day growth calibration, a WSL2
-> end-to-end install, and the final demo GIF. A clean `pipx install .` passed
-> in 28.91 seconds; the same under-five-minute launch check still needs to be
-> repeated with `uvx`.
+> **Status: `v0.1.0` release candidate (`0.1.0.dev0`).** Automated tests,
+> package builds, a clean `pipx install .`, and macOS real-session checks have
+> passed. Those checks cover API-key and subscription-OAuth sessions, tool use,
+> Esc cancellation, and a manual direct-vs-proxy streaming comparison. `pipx`
+> is the supported install path. Linux shell behavior is covered by CI; WSL2
+> remains experimental. Growth tuning, `uvx` validation, and a demo GIF are
+> post-release follow-ups rather than `v0.1.0` blockers.
 
 ## Install from GitHub
 
 ### Requirements
 
-- macOS, Linux, or Windows 10/11 through WSL2
+- macOS (manually verified), Linux (CI-covered), or experimental Windows
+  10/11 support through WSL2
 - zsh or bash (automatic shell integration does not support fish yet)
 - Python 3.10 or newer: `python3 --version`
 - Claude Code already installed: `claude --version`
 - `pipx` is recommended so Token Sprout stays isolated from system Python
 
-Native Windows PowerShell and Command Prompt are not supported yet. The WSL2
-path below is documented for pre-release users and still needs its final
-real-machine release check.
+Native Windows PowerShell and Command Prompt are not supported. The WSL2 path
+below is experimental: it is documented for early users but has not yet
+completed an end-to-end check on a real Windows machine.
 
 On macOS or Linux, install `pipx` first if needed. Windows users should skip
 to the WSL2 section below instead:
@@ -49,7 +50,7 @@ python3 -m pipx ensurepath
 
 Open a new terminal after `pipx ensurepath`.
 
-### Windows 10/11 through WSL2
+### Windows 10/11 through WSL2 (experimental)
 
 Install and launch Claude Code, Python, and Token Sprout inside the **same
 WSL2 distribution**. Do not install Token Sprout in WSL and then launch the
@@ -327,17 +328,19 @@ boundary because it can already read that account's Claude credentials. See
 
 - v0.1 is validated for Claude Code; other Anthropic clients may work but are
   not claimed as supported.
-- Automatic shell setup supports zsh and bash on macOS/Linux, including
-  Windows through WSL2. Native Windows PowerShell/CMD and fish are not
-  supported; the WSL2 path still awaits its final real-machine release check.
+- Automatic shell setup supports zsh and bash on macOS and is exercised on
+  Linux in CI. Native Windows PowerShell/CMD and fish are not supported;
+  Windows through WSL2 remains an experimental, not yet end-to-end verified
+  path.
 - Per Claude Code's
   [environment-variable behavior](https://code.claude.com/docs/en/env-vars),
   **Remote Control is unavailable** while a non-first-party base URL such as
   the localhost proxy is active. Dynamic tool search remains enabled unless
   you explicitly set `ENABLE_TOOL_SEARCH` yourself.
-- The proxy is designed for zero response buffering, but the final release
-  still requires the real-session latency and cancellation checks listed at
-  the top of this README.
+- Forwarding is designed and tested not to buffer responses. A manual macOS
+  direct-vs-proxy session showed no repeatable visible delay or batching, and
+  Esc cancellation completed normally. `v0.1.0` does not include a published
+  instrumented latency benchmark.
 
 ## Troubleshooting
 
