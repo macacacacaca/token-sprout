@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.DS_Store
+
+# Local credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.claude/
+
+# Token Sprout runtime state (real files live under ~/.token-sprout/)
+.token-sprout/
+plant_state.json
+proxy.secret
+state.lock
