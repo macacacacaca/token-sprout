@@ -11,12 +11,11 @@ Token Sprout 是在本機運作的透明轉發 proxy。它只從 Anthropic API
 
 ![Token Sprout 技術與使用流程](docs/token-sprout-overview.svg)
 
-> **狀態：`v0.1.0` 發布候選版（`0.1.0.dev0`）。** 自動測試、套件建置、
-> 乾淨的 `pipx install .` 與 macOS 真實 session 檢查皆已通過；內容包含
-> API key、訂閱 OAuth、工具呼叫、Esc 中斷，以及直連與 proxy 的手動串流
-> 比較。`pipx` 是正式安裝方式；Linux shell 行為由 CI 覆蓋，WSL2 仍屬
-> 實驗性支援。成長速度調整、`uvx` 驗證與 demo GIF 是發布後工作，不再
-> 阻擋 `v0.1.0`。
+> **狀態：`v0.1.0` 已發布。** 自動測試、套件建置、乾淨的 `pipx install .`
+> 與 macOS 真實 session 檢查皆已通過；內容包含 API key、訂閱 OAuth、
+> 工具呼叫、Esc 中斷，以及直連與 proxy 的手動串流比較。`pipx` 是正式安裝
+> 方式；Linux shell 行為由 CI 覆蓋，WSL2 仍屬實驗性支援。成長速度調整、
+> `uvx` 驗證與 demo GIF 是發布後工作。
 
 ## 從 GitHub 下載後安裝
 

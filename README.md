@@ -12,13 +12,12 @@ while Claude is thinking.
 
 ![How Token Sprout works](docs/token-sprout-overview.svg)
 
-> **Status: `v0.1.0` release candidate (`0.1.0.dev0`).** Automated tests,
-> package builds, a clean `pipx install .`, and macOS real-session checks have
-> passed. Those checks cover API-key and subscription-OAuth sessions, tool use,
-> Esc cancellation, and a manual direct-vs-proxy streaming comparison. `pipx`
-> is the supported install path. Linux shell behavior is covered by CI; WSL2
-> remains experimental. Growth tuning, `uvx` validation, and a demo GIF are
-> post-release follow-ups rather than `v0.1.0` blockers.
+> **Status: `v0.1.0` released.** Automated tests, package builds, a clean
+> `pipx install .`, and macOS real-session checks have passed — API-key and
+> subscription-OAuth sessions, tool use, Esc cancellation, and a manual
+> direct-vs-proxy streaming comparison. `pipx` is the supported install path.
+> Linux shell behavior is covered by CI; WSL2 remains experimental. Growth
+> tuning, `uvx` validation, and a demo GIF are post-release follow-ups.
 
 ## Install from GitHub
 
