@@ -24,6 +24,10 @@ token-sprout = "token_sprout.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    # starlette's TestClient runs on httpx2 (its httpx-1.x fallback emits a
+    # deprecation warning, which CI's -W error escalates to a failure). The
+    # proxy's own runtime client stays on httpx — the two coexist.
+    "httpx2>=2",
 ]
 
 [tool.hatch.build.targets.wheel]
