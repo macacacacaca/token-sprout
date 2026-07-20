@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-sprout"
+version = "0.1.0.dev0"
+description = "Grow a tiny terminal plant with the tokens you spend on AI coding agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["claude-code", "anthropic", "terminal-ui", "developer-tools", "ai-tools"]
+dependencies = [
+    "starlette>=0.37",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
+    "filelock>=3.12",
+    "rich>=13",
+]
+
+[project.scripts]
+token-sprout = "token_sprout.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["token_sprout"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
