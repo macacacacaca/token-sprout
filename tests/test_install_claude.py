@@ -2,6 +2,7 @@
 
 import os
 import shlex
+import shutil
 import subprocess
 
 import pytest
@@ -12,6 +13,12 @@ from token_sprout.cli import (
     _shell_rc_path,
     main,
 )
+
+# The integration tests below run real shells. Resolve them from PATH so
+# Linux (zsh at /usr/bin/zsh, or not installed) behaves like macOS; CI
+# installs zsh explicitly so these tests are actually exercised there.
+ZSH = shutil.which("zsh")
+BASH = shutil.which("bash")
 
 
 @pytest.fixture
@@ -101,6 +108,7 @@ def test_force_keeps_foreign_override_but_appends_ours(shell_setup):
     assert installed.index("alias claude") < installed.index(_CLAUDE_BLOCK_START)
 
 
+@pytest.mark.skipif(ZSH is None, reason="zsh unavailable")
 def test_sourced_alias_is_left_unchanged_without_force(shell_setup, tmp_path, capsys):
     rc_path, _, _ = shell_setup
     sourced = tmp_path / "aliases.zsh"
@@ -110,7 +118,7 @@ def test_sourced_alias_is_left_unchanged_without_force(shell_setup, tmp_path, ca
     assert main(["install-claude"]) == 0
     result = subprocess.run(
         [
-            "/bin/zsh",
+            ZSH,
             "-c",
             f"source {shlex.quote(str(rc_path))}; alias claude",
         ],
@@ -124,6 +132,7 @@ def test_sourced_alias_is_left_unchanged_without_force(shell_setup, tmp_path, ca
     capsys.readouterr()
 
 
+@pytest.mark.skipif(ZSH is None, reason="zsh unavailable")
 def test_force_overrides_alias_loaded_from_sourced_file(shell_setup, tmp_path):
     rc_path, token_sprout, claude = shell_setup
     log_path = tmp_path / "forced-args.txt"
@@ -139,7 +148,7 @@ def test_force_overrides_alias_loaded_from_sourced_file(shell_setup, tmp_path):
     assert main(["install-claude", "--force"]) == 0
     subprocess.run(
         [
-            "/bin/zsh",
+            ZSH,
             "-c",
             f"source {shlex.quote(str(rc_path))}; claude --resume session-123",
         ],
@@ -168,6 +177,7 @@ def test_macos_bash_uses_login_profile(tmp_path, monkeypatch):
     assert _shell_rc_path("bash") == tmp_path / ".bash_profile"
 
 
+@pytest.mark.skipif(ZSH is None, reason="zsh unavailable")
 def test_managed_function_forwards_all_claude_arguments(shell_setup, tmp_path):
     rc_path, token_sprout, claude = shell_setup
     log_path = tmp_path / "args.txt"
@@ -180,7 +190,7 @@ def test_managed_function_forwards_all_claude_arguments(shell_setup, tmp_path):
 
     subprocess.run(
         [
-            "/bin/zsh",
+            ZSH,
             "-c",
             f"source {shlex.quote(str(rc_path))}; claude --resume session-123",
         ],
@@ -196,7 +206,7 @@ def test_managed_function_forwards_all_claude_arguments(shell_setup, tmp_path):
     ]
 
 
-@pytest.mark.skipif(not os.path.exists("/bin/bash"), reason="bash unavailable")
+@pytest.mark.skipif(BASH is None, reason="bash unavailable")
 def test_managed_function_is_valid_in_bash(shell_setup, tmp_path):
     rc_path, token_sprout, claude = shell_setup
     log_path = tmp_path / "bash-args.txt"
@@ -209,7 +219,7 @@ def test_managed_function_is_valid_in_bash(shell_setup, tmp_path):
     assert main(["install-claude", "--shell", "bash"]) == 0
     subprocess.run(
         [
-            "/bin/bash",
+            BASH,
             "-c",
             f"source {shlex.quote(str(rc_path))}; claude --resume bash-session",
         ],
