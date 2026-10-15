@@ -86,19 +86,6 @@ def _too_small(size) -> bool:
     return size.width < MIN_WIDTH or size.height < MIN_HEIGHT
 
 
-def _transition_notice(prev: dict, cur: dict) -> str | None:
-    bloom_glyph = ascii_art.stage_glyph("bloom")
-    if cur["generation"] > prev["generation"]:
-        return f"{bloom_glyph} Bloomed! Generation {cur['generation']} begins..."
-    prev_view = game.plant_view(prev)
-    cur_view = game.plant_view(cur)
-    if cur_view["is_bloom"] and not prev_view["is_bloom"]:
-        return f"{bloom_glyph} In bloom!"
-    if cur["generation"] == prev["generation"] and cur_view["level"] > prev_view["level"]:
-        return f"✨ Grew into {cur_view['stage']}!"
-    return None
-
-
 def watch() -> int:
     console = Console()
     prev = state.load_state()
@@ -113,7 +100,7 @@ def watch() -> int:
                 loaded = state.try_load_state()
                 s = loaded if loaded is not None else prev
                 now = time.monotonic()
-                new_notice = _transition_notice(prev, s)
+                new_notice = ascii_art.transition_notice(prev, s)
                 if new_notice:
                     notice = new_notice
                     notice_until = now + NOTICE_SECONDS

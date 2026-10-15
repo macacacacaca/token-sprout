@@ -723,6 +723,12 @@ def _cmd_statusline(args: argparse.Namespace) -> int:
 
 
 def _cmd_watch(args: argparse.Namespace) -> int:
+    if args.json:
+        # Editor feed: strictly read-only, so no init_home() here.
+        from . import feed
+
+        return feed.run()
+
     from . import ui
 
     state.init_home()
@@ -833,6 +839,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_uninstall_claude.set_defaults(func=_cmd_uninstall_claude)
 
     p_watch = sub.add_parser("watch", help="Live plant view with watering animation")
+    p_watch.add_argument(
+        "--json",
+        action="store_true",
+        help="Stream one read-only JSON snapshot per change (for editor integrations)",
+    )
     p_watch.set_defaults(func=_cmd_watch)
 
     p_statusline = sub.add_parser(

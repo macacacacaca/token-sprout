@@ -63,7 +63,7 @@ def test_transition_notice_stage_up():
     cur = default_state()
     cur["current_exp"] = game.STAGE_UNIT_COSTS[1]  # sprout ×1
     cur["level"] = 2
-    assert "Grew into sprout" in ui._transition_notice(prev, cur)
+    assert "Grew into sprout" in ascii_art.transition_notice(prev, cur)
 
 
 def test_transition_notice_bloom_and_generation():
@@ -71,10 +71,10 @@ def test_transition_notice_bloom_and_generation():
     bloom = default_state()
     bloom["current_exp"] = game.BLOOM_PROGRESS
     bloom["level"] = game.MAX_LEVEL
-    assert "bloom" in ui._transition_notice(prev, bloom).lower()
+    assert "bloom" in ascii_art.transition_notice(prev, bloom).lower()
 
     gen2 = default_state()
     gen2["generation"] = 2
-    assert "Generation 2" in ui._transition_notice(prev, gen2)
+    assert "Generation 2" in ascii_art.transition_notice(prev, gen2)
 
-    assert ui._transition_notice(prev, default_state()) is None
+    assert ascii_art.transition_notice(prev, default_state()) is None
