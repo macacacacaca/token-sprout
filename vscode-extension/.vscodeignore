@@ -1,0 +1,9 @@
+# Ship only the runtime: src/, media/, l10n/, package*.nls*.json, README, LICENSE.
+test/**
+node_modules/**
+jsconfig.json
+package-lock.json
+.vscode/**
+*.vsix
+.DS_Store
+.gitignore

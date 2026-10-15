@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "token-sprout"
-version = "0.1.0"
-description = "Grow a tiny terminal plant with the tokens you spend on AI coding agents."
+version = "0.2.0"
+description = "Grow a tiny plant with the tokens you spend on AI coding agents."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -32,6 +32,11 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["token_sprout"]
+
+# The editor extension and the rendered artwork are not part of the Python
+# package; they ship separately (.vsix) and live in the repository.
+[tool.hatch.build.targets.sdist]
+exclude = ["/vscode-extension", "/docs/assets"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

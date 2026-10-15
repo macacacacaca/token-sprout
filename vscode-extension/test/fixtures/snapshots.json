@@ -1,0 +1,170 @@
+{
+  "fresh_seed": {
+    "protocol": 1,
+    "version": "0.2.0",
+    "thinking": false,
+    "active_requests": 0,
+    "live_tokens_estimate": 0,
+    "glyph": "🌰",
+    "view": {
+      "generation": 1,
+      "stage": "seed",
+      "level": 1,
+      "count": 0,
+      "units_per_stage": 20,
+      "is_bloom": false,
+      "unit_progress_percent": 0,
+      "to_next_unit": 10000,
+      "to_next_stage": 200000,
+      "to_bloom": 1600000000
+    },
+    "totals": {
+      "total": 0,
+      "input": 0,
+      "output": 0,
+      "cache_creation": 0,
+      "cache_read": 0
+    },
+    "last_request": {
+      "tokens": 0,
+      "finished_at": null
+    },
+    "transition": null,
+    "notice": null
+  },
+  "idle_sprout": {
+    "protocol": 1,
+    "version": "0.2.0",
+    "thinking": false,
+    "active_requests": 0,
+    "live_tokens_estimate": 0,
+    "glyph": "🌱",
+    "view": {
+      "generation": 1,
+      "stage": "sprout",
+      "level": 2,
+      "count": 2,
+      "units_per_stage": 20,
+      "is_bloom": false,
+      "unit_progress_percent": 65,
+      "to_next_unit": 71000,
+      "to_next_stage": 3471000,
+      "to_bloom": 1599471000
+    },
+    "totals": {
+      "total": 1234567,
+      "input": 200000,
+      "output": 300000,
+      "cache_creation": 100000,
+      "cache_read": 634567
+    },
+    "last_request": {
+      "tokens": 1284,
+      "finished_at": "2026-10-15T08:41:19+00:00"
+    },
+    "transition": null,
+    "notice": null
+  },
+  "thinking_sprout": {
+    "protocol": 1,
+    "version": "0.2.0",
+    "thinking": true,
+    "active_requests": 2,
+    "live_tokens_estimate": 5000,
+    "glyph": "🌱",
+    "view": {
+      "generation": 1,
+      "stage": "sprout",
+      "level": 2,
+      "count": 2,
+      "units_per_stage": 20,
+      "is_bloom": false,
+      "unit_progress_percent": 67,
+      "to_next_unit": 66000,
+      "to_next_stage": 3466000,
+      "to_bloom": 1599466000
+    },
+    "totals": {
+      "total": 1234567,
+      "input": 200000,
+      "output": 300000,
+      "cache_creation": 100000,
+      "cache_read": 634567
+    },
+    "last_request": {
+      "tokens": 1284,
+      "finished_at": "2026-10-15T08:41:19+00:00"
+    },
+    "transition": null,
+    "notice": null
+  },
+  "bloom": {
+    "protocol": 1,
+    "version": "0.2.0",
+    "thinking": false,
+    "active_requests": 0,
+    "live_tokens_estimate": 0,
+    "glyph": "🌸",
+    "view": {
+      "generation": 3,
+      "stage": "bloom",
+      "level": 5,
+      "count": null,
+      "units_per_stage": 20,
+      "is_bloom": true,
+      "unit_progress_percent": 100,
+      "to_next_unit": 0,
+      "to_next_stage": 0,
+      "to_bloom": 0
+    },
+    "totals": {
+      "total": 0,
+      "input": 0,
+      "output": 0,
+      "cache_creation": 0,
+      "cache_read": 0
+    },
+    "last_request": {
+      "tokens": 0,
+      "finished_at": null
+    },
+    "transition": null,
+    "notice": null
+  },
+  "stage_up": {
+    "protocol": 1,
+    "version": "0.2.0",
+    "thinking": false,
+    "active_requests": 0,
+    "live_tokens_estimate": 0,
+    "glyph": "🌱",
+    "view": {
+      "generation": 1,
+      "stage": "sprout",
+      "level": 2,
+      "count": 1,
+      "units_per_stage": 20,
+      "is_bloom": false,
+      "unit_progress_percent": 0,
+      "to_next_unit": 200000,
+      "to_next_stage": 3800000,
+      "to_bloom": 1599800000
+    },
+    "totals": {
+      "total": 0,
+      "input": 0,
+      "output": 0,
+      "cache_creation": 0,
+      "cache_read": 0
+    },
+    "last_request": {
+      "tokens": 0,
+      "finished_at": null
+    },
+    "transition": {
+      "kind": "stage_up",
+      "stage": "sprout"
+    },
+    "notice": "✨ Grew into sprout!"
+  }
+}

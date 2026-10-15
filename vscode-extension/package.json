@@ -1,0 +1,131 @@
+{
+  "name": "token-sprout",
+  "displayName": "Token Sprout",
+  "description": "%description%",
+  "version": "0.2.0",
+  "publisher": "macacacacaca",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/macacacacaca/token-sprout.git",
+    "directory": "vscode-extension"
+  },
+  "homepage": "https://github.com/macacacacaca/token-sprout#readme",
+  "bugs": {
+    "url": "https://github.com/macacacacaca/token-sprout/issues"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "tokens",
+    "status bar",
+    "plant"
+  ],
+  "galleryBanner": {
+    "color": "#FBE7D8",
+    "theme": "light"
+  },
+  "main": "./src/extension.js",
+  "l10n": "./l10n",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tokenSprout",
+          "title": "Token Sprout",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "tokenSprout": [
+        {
+          "type": "webview",
+          "id": "tokenSprout.plant",
+          "name": "%view.plant%",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tokenSprout.showPlant",
+        "title": "%command.showPlant%",
+        "category": "Token Sprout"
+      },
+      {
+        "command": "tokenSprout.restart",
+        "title": "%command.restart%",
+        "category": "Token Sprout"
+      },
+      {
+        "command": "tokenSprout.openSetupGuide",
+        "title": "%command.openSetupGuide%",
+        "category": "Token Sprout"
+      }
+    ],
+    "configuration": {
+      "title": "Token Sprout",
+      "properties": {
+        "tokenSprout.executablePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.executablePath%"
+        },
+        "tokenSprout.statusBar.visibility": {
+          "type": "string",
+          "enum": [
+            "always",
+            "thinking",
+            "hidden"
+          ],
+          "enumDescriptions": [
+            "%config.visibility.always%",
+            "%config.visibility.thinking%",
+            "%config.visibility.hidden%"
+          ],
+          "default": "always",
+          "markdownDescription": "%config.visibility%"
+        },
+        "tokenSprout.statusBar.showPile": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.showPile%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc -p jsconfig.json",
+    "test": "node --test test/*.test.js",
+    "test:integration": "node test/integration/run.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "4.0.0",
+    "typescript": "5.9.3"
+  }
+}

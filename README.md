@@ -2,22 +2,34 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-Grow a tiny terminal plant with the tokens you spend in Claude Code.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+  <img alt="Token Sprout: a potted plant blooming at dawn, watered by token droplets" src="docs/assets/hero-light.svg">
+</picture>
+
+Grow a tiny plant with the tokens you spend in Claude Code.
 
 Token Sprout is a local, transparent pass-through proxy. It observes token
 usage metadata in Anthropic API responses and turns it into plant growth. Your
 normal command stays `claude`; the plant appears in
 [Claude Code's bottom status line](https://code.claude.com/docs/en/statusline)
-while Claude is thinking.
+while Claude is thinking — and, with the [VS Code extension](#vs-code-extension),
+in the corner of the VS Code status bar and an illustrated sidebar.
 
-![How Token Sprout works](docs/token-sprout-overview.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.svg">
+  <img alt="How Token Sprout works: Claude Code talks to the Anthropic API through a local proxy that copies only token usage numbers into a private state file, which three read-only views display" src="docs/assets/how-it-works-light.svg">
+</picture>
 
-> **Status: `v0.1.0` released.** Automated tests, package builds, a clean
-> `pipx install .`, and macOS real-session checks have passed — API-key and
-> subscription-OAuth sessions, tool use, Esc cancellation, and a manual
-> direct-vs-proxy streaming comparison. `pipx` is the supported install path.
-> Linux shell behavior is covered by CI; WSL2 remains experimental. Growth
-> tuning, `uvx` validation, and a demo GIF are post-release follow-ups.
+> **Status: `v0.2.0` released.** New in 0.2: a
+> [VS Code extension](#vs-code-extension) and redrawn artwork. The proxy is
+> unchanged since `v0.1.0`, whose release checks still apply: automated tests,
+> package builds, a clean `pipx install .`, and macOS real-session checks —
+> API-key and subscription-OAuth sessions, tool use, Esc cancellation, and a
+> manual direct-vs-proxy streaming comparison. The extension is covered by
+> unit tests and an automated run inside VS Code. `pipx` is the supported
+> install path. Linux shell behavior is covered by CI; WSL2 remains
+> experimental. Growth tuning, `uvx` validation, and a demo GIF are follow-ups.
 
 ## Install from GitHub
 
@@ -156,6 +168,44 @@ The line hides when Claude is idle. Use
 remain visible. Claude Code must trust the workspace before it runs a status
 line command; interact once or restart Claude Code after installation.
 
+## VS Code extension
+
+See the plant in the corner of the VS Code status bar and in an illustrated
+sidebar that follows your color theme: dawn in light themes, night in dark
+ones.
+
+<p align="center">
+  <img src="docs/assets/vscode-preview.png" width="600" alt="Token Sprout's VS Code sidebar in a dark and a light theme, with the status bar item below each">
+</p>
+
+The extension needs the CLI from step 1 at version **0.2.0 or newer**, with
+Claude Code launched through Token Sprout as in step 2. Download
+`token-sprout-0.2.0.vsix` from the
+[v0.2.0 release](https://github.com/macacacacaca/token-sprout/releases/tag/v0.2.0)
+and install it:
+
+```bash
+code --install-extension token-sprout-0.2.0.vsix
+```
+
+Or open the Extensions view, choose **… → Install from VSIX…**, and pick the
+file. The extension is not on the Visual Studio Marketplace yet.
+
+- **Status bar:** `🌱 2/20` while idle, `🌱 2/20 · 💧 67% · +5,000` while
+  Claude is thinking, and a short notice when the plant reaches a new stage.
+  Hover for details; click to open the sidebar.
+- **Sidebar:** the plant, watered while Claude thinks; a 20-cell tray that
+  fills toward the next 20:1 merge; and lifetime token totals.
+- **Settings:** `tokenSprout.statusBar.visibility` (`always`, `thinking`, or
+  `hidden`), `tokenSprout.statusBar.showPile`, and
+  `tokenSprout.executablePath` when `token-sprout` is not on `PATH` or in
+  `~/.local/bin`.
+
+The extension only reads. It runs `token-sprout watch --json`, a read-only
+stream of the same numbers the other views show, and displays it in English
+or Traditional Chinese to match VS Code. With Remote - SSH, WSL, or Dev
+Containers it runs where the workspace runs, so install the CLI there too.
+
 ## What the installers change
 
 `install-claude` adds one marked, removable shell function:
@@ -196,6 +246,7 @@ Useful commands:
 ```bash
 token-sprout status       # one-shot plant and token summary
 token-sprout watch        # animated panel in another terminal
+token-sprout watch --json # read-only JSON lines (the VS Code extension uses this)
 token-sprout reset        # start again after confirmation
 ```
 
@@ -271,6 +322,11 @@ millions of cached tokens in a day. These numbers are a game mechanic, not a
 billing ledger. `/v1/messages/count_tokens` is also excluded because it is an
 estimate, not real consumption.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/growth-dark.svg">
+  <img alt="Growth ladder: seed, sprout, leaf, bud, bloom. Twenty units of one stage merge into one unit of the next; bloom takes 1.6 billion food tokens" src="docs/assets/growth-light.svg">
+</picture>
+
 Every **10,000 food tokens** creates one seed. Twenty units of the current
 stage merge into one unit of the next stage:
 
@@ -319,14 +375,30 @@ Optional writes outside that directory happen only when you run an installer:
 - the marked shell block described above;
 - the `statusLine` object in `~/.claude/settings.json`.
 
+The VS Code extension makes no network requests and writes no files of its
+own; installing it only adds VS Code's copy of the extension.
+
+- It starts exactly one program, `token-sprout watch --json`, without a
+  shell. The executable comes from absolute `PATH` entries, `~/.local/bin`,
+  or the machine-scoped `tokenSprout.executablePath`, which workspace
+  settings cannot override.
+- `watch --json` never takes the state lock, never writes, and never creates
+  `~/.token-sprout/`; its lines carry token counts only.
+- Each line is validated before display. The sidebar webview runs under a
+  strict Content Security Policy and loads only files bundled with the
+  extension.
+
 A malicious process running under your own OS account is outside this threat
 boundary because it can already read that account's Claude credentials. See
 [SECURITY.md](SECURITY.md) to report a vulnerability privately.
 
 ## Known limitations
 
-- v0.1 is validated for Claude Code; other Anthropic clients may work but are
-  not claimed as supported.
+- Token Sprout is validated for Claude Code; other Anthropic clients may work
+  but are not claimed as supported.
+- The VS Code extension ships as a `.vsix` on GitHub Releases, not yet on the
+  Visual Studio Marketplace or Open VSX. Its integration test passes in VS
+  Code 1.142 on macOS; it declares support for VS Code 1.90 or newer.
 - Automatic shell setup supports zsh and bash on macOS and is exercised on
   Linux in CI. Native Windows PowerShell/CMD and fish are not supported;
   Windows through WSL2 remains an experimental, not yet end-to-end verified
@@ -338,7 +410,7 @@ boundary because it can already read that account's Claude credentials. See
   you explicitly set `ENABLE_TOOL_SEARCH` yourself.
 - Forwarding is designed and tested not to buffer responses. A manual macOS
   direct-vs-proxy session showed no repeatable visible delay or batching, and
-  Esc cancellation completed normally. `v0.1.0` does not include a published
+  Esc cancellation completed normally. No release yet includes a published
   instrumented latency benchmark.
 
 ## Troubleshooting
@@ -379,6 +451,7 @@ through plain `claude` after installing the integration. Check
 Remove integrations before removing the executable:
 
 ```bash
+code --uninstall-extension macacacacaca.token-sprout   # if you installed it
 token-sprout uninstall-statusline
 token-sprout uninstall-claude
 pipx uninstall token-sprout
@@ -398,9 +471,37 @@ python3.13 -m venv .venv
 .venv/bin/pytest -W error
 ```
 
+The VS Code extension needs Node.js 22 or newer:
+
+```bash
+cd vscode-extension
+npm ci --ignore-scripts
+npm run check && npm test       # type check and unit tests
+npm run test:integration        # the real CLI inside an isolated VS Code
+npx vsce package --no-dependencies
+```
+
+`test:integration` defaults to the macOS VS Code in `/Applications` and the
+repository's `.venv`; set `VSCODE_BIN` and `TOKEN_SPROUT_CLI` to override.
+
+Every illustration is generated by one standard-library script, so the README,
+the extension, and the social preview stay consistent:
+
+```bash
+python scripts/build_art.py           # rewrite the SVGs
+python scripts/build_art.py --check   # fail when a committed SVG is stale
+python scripts/build_art.py --png     # also rasterize PNGs with headless Chrome
+```
+
+The art direction borrows principles, not pixels: flat two-tone facets after
+*Monument Valley* (Apple Design Award 2014) and layered, atmospheric
+landscapes after *Alto's Odyssey* (Apple Design Award 2018). Every shape is
+original.
+
 CI tests Python 3.10–3.13, treats warnings as errors, compiles the source,
-checks installed dependencies, audits them, builds a wheel, and smoke-tests a
-clean wheel installation.
+checks installed dependencies, audits them, builds a wheel, smoke-tests a
+clean wheel installation, checks that the generated art is current, and type
+checks, tests, audits, and packages the extension.
 
 | File | Responsibility |
 |---|---|
@@ -409,11 +510,14 @@ clean wheel installation.
 | `token_sprout/state.py` | Private files, single-writer state, lock, atomic replace |
 | `token_sprout/game.py` | Token-to-growth rules |
 | `token_sprout/ui.py`, `ascii_art.py` | Read-only status and animation views |
+| `token_sprout/feed.py` | Read-only JSON line feed for editors (`watch --json`) |
 | `token_sprout/cli.py` | CLI, lifecycle, shell integration, and statusline installer |
+| `vscode-extension/` | VS Code status bar item and illustrated sidebar |
+| `scripts/build_art.py` | Generates every illustration |
 
 The repository's [`docs/technical-spec.md`](docs/technical-spec.md) is the
-authoritative v0.1 technical specification and takes precedence over
-implementation decisions.
+authoritative technical specification (v0.1, with the v0.2 additions in §15)
+and takes precedence over implementation decisions.
 
 ## License
 

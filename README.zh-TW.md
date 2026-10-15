@@ -2,20 +2,33 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-把你在 Claude Code 花掉的 token，養成一株終端小植物。
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.zh-TW.svg">
+  <img alt="Token Sprout：一盆被 token 水滴澆灌、在晨光中開花的小植物" src="docs/assets/hero-light.zh-TW.svg">
+</picture>
+
+把你在 Claude Code 花掉的 token，養成一株小植物。
 
 Token Sprout 是在本機運作的透明轉發 proxy。它只從 Anthropic API
 回應讀取 token 用量資訊，再把用量變成植物成長。安裝後你照常輸入
 `claude`；Claude 思考時，植物會出現在
-[Claude Code 視窗底部的 status line](https://code.claude.com/docs/en/statusline)。
+[Claude Code 視窗底部的 status line](https://code.claude.com/docs/en/statusline)；
+裝了 [VS Code 擴充套件](#vs-code-擴充套件)後，也會出現在 VS Code 狀態列右下角與
+插畫側邊欄。
 
-![Token Sprout 技術與使用流程](docs/token-sprout-overview.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.zh-TW.svg">
+  <img alt="Token Sprout 運作方式：Claude Code 經本機 proxy 連到 Anthropic API，proxy 只把 token 用量數字寫入私有 state 檔，再由三個唯讀畫面顯示" src="docs/assets/how-it-works-light.zh-TW.svg">
+</picture>
 
-> **狀態：`v0.1.0` 已發布。** 自動測試、套件建置、乾淨的 `pipx install .`
-> 與 macOS 真實 session 檢查皆已通過；內容包含 API key、訂閱 OAuth、
-> 工具呼叫、Esc 中斷，以及直連與 proxy 的手動串流比較。`pipx` 是正式安裝
-> 方式；Linux shell 行為由 CI 覆蓋，WSL2 仍屬實驗性支援。成長速度調整、
-> `uvx` 驗證與 demo GIF 是發布後工作。
+> **狀態：`v0.2.0` 已發布。** 0.2 新增
+> [VS Code 擴充套件](#vs-code-擴充套件)並重繪全部美術。proxy 自 `v0.1.0` 起
+> 沒有變動，當時的發布檢查仍然適用：自動測試、套件建置、乾淨的
+> `pipx install .` 與 macOS 真實 session 檢查；內容包含 API key、訂閱 OAuth、
+> 工具呼叫、Esc 中斷，以及直連與 proxy 的手動串流比較。擴充套件有單元測試，
+> 並在 VS Code 內完成自動化整合測試。`pipx` 是正式安裝方式；Linux shell
+> 行為由 CI 覆蓋，WSL2 仍屬實驗性支援。成長速度調整、`uvx` 驗證與 demo GIF
+> 是後續工作。
 
 ## 從 GitHub 下載後安裝
 
@@ -146,6 +159,40 @@ Claude 閒置時會自動隱藏這行。如果希望閒置時也保留簡潔版�
 `token-sprout install-statusline --always`。Claude Code 必須信任當前
 workspace 才會執行 status line 指令；安裝後互動一次或重啟 Claude Code。
 
+## VS Code 擴充套件
+
+在 VS Code 狀態列右下角與插畫側邊欄看植物長大；側邊欄會跟著色彩主題切換：
+淺色主題是清晨，深色主題是夜晚。
+
+<p align="center">
+  <img src="docs/assets/vscode-preview.png" width="600" alt="Token Sprout 的 VS Code 側邊欄在深色與淺色主題下的樣子，下方是狀態列項目">
+</p>
+
+擴充套件需要第 1 步安裝的 CLI 為 **0.2.0 以上**，並依第 2 步讓 Claude Code
+經由 Token Sprout 啟動。從
+[v0.2.0 release](https://github.com/macacacacaca/token-sprout/releases/tag/v0.2.0)
+下載 `token-sprout-0.2.0.vsix` 後安裝：
+
+```bash
+code --install-extension token-sprout-0.2.0.vsix
+```
+
+也可以打開「延伸模組」檢視，選 **… → 從 VSIX 安裝…** 再選擇檔案。擴充套件
+目前尚未上架 Visual Studio Marketplace。
+
+- **狀態列：** 閒置時 `🌱 2/20`，Claude 思考時 `🌱 2/20 · 💧 67% · +5,000`；
+  長到新階段時會短暫顯示通知。滑鼠停留可看詳細數字，點一下開啟側邊欄。
+- **側邊欄：** 思考時會被澆水的植物插畫、朝下一次 20:1 合成填滿的 20 格育苗盤，
+  以及累計 token。
+- **設定：** `tokenSprout.statusBar.visibility`（`always`、`thinking` 或
+  `hidden`）、`tokenSprout.statusBar.showPile`；`token-sprout` 不在 `PATH` 或
+  `~/.local/bin` 時，用 `tokenSprout.executablePath` 指定路徑。
+
+擴充套件只讀不寫。它執行 `token-sprout watch --json`——與其他畫面同一份數字的
+唯讀資料流——並依 VS Code 介面語言以英文或繁體中文顯示。使用 Remote - SSH、
+WSL 或 Dev Containers 時，它會在 workspace 所在的那一端執行，因此 CLI 也要裝在
+那一端。
+
 ## 安裝器會改動什麼？
 
 `install-claude` 會加入一段有明確標記、可完整移除的 shell function：
@@ -185,6 +232,7 @@ Claude Code 的動態工具搜尋功能。有需要才啟動 localhost proxy，�
 ```bash
 token-sprout status       # 顯示一次植物與 token 摘要
 token-sprout watch        # 在另一個終端顯示動畫面板
+token-sprout watch --json # 唯讀 JSON 資料流（VS Code 擴充套件使用）
 token-sprout reset        # 確認後重新開始
 ```
 
@@ -260,6 +308,11 @@ Cache read 會顯示，但不當作食物，因為 Claude Code 一天可能讀�
 token。這是遊戲成長數字，不是帳單。`/v1/messages/count_tokens` 也不計入，因為
 它是估算，不是真實消耗。
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/growth-dark.zh-TW.svg">
+  <img alt="成長階梯：種子、幼芽、盆栽、花苞、開花。同階 20 顆合成下一階 1 顆；開花需要 16 億個食物 token" src="docs/assets/growth-light.zh-TW.svg">
+</picture>
+
 每 **10,000 個食物 token** 會得到一顆種子；每 20 顆當前階段單位會合成
 1 顆下一階單位：
 
@@ -304,12 +357,27 @@ Token Sprout 將本機資料夾固定為 `0700`，下列檔案都是 `0600`；�
 - 前述帶有標記的 shell block；
 - `~/.claude/settings.json` 的 `statusLine` 物件。
 
+VS Code 擴充套件不發出任何網路請求，也不寫入任何自己的檔案；安裝它只會讓
+VS Code 存放一份擴充套件本身。
+
+- 它只啟動一個程式：`token-sprout watch --json`，且不經過 shell。執行檔來自
+  `PATH` 中的絕對路徑、`~/.local/bin`，或限定本機層級的
+  `tokenSprout.executablePath`；工作區設定無法覆寫它。
+- `watch --json` 不取 state lock、不寫入，也不會建立 `~/.token-sprout/`；
+  每一行只有 token 數字。
+- 每一行顯示前都會先驗證。側邊欄 webview 在嚴格的 Content Security Policy
+  下執行，只載入擴充套件內附的檔案。
+
 在同一個 OS 使用者帳號下運作的惡意程式不在此威脅邊界內，因為它原本就能讀取
 該帳號的 Claude 憑證。如要私下回報漏洞，請參閱 [SECURITY.md](SECURITY.md)。
 
 ## 已知限制
 
-- v0.1 只正式驗證 Claude Code；其他 Anthropic client 可能可用，但尚不宣稱支援。
+- Token Sprout 只正式驗證 Claude Code；其他 Anthropic client 可能可用，但尚不
+  宣稱支援。
+- VS Code 擴充套件以 `.vsix` 形式放在 GitHub Releases，尚未上架 Visual Studio
+  Marketplace 或 Open VSX。整合測試已在 macOS 的 VS Code 1.142 通過；宣告支援
+  VS Code 1.90 以上。
 - 自動 shell 設定支援 macOS 的 zsh 與 bash，並在 Linux CI 中執行測試。
   尚不支援原生 Windows PowerShell/CMD 與 fish；Windows WSL2 仍是尚未完成
   端到端實機驗證的實驗性路徑。
@@ -318,8 +386,8 @@ Token Sprout 將本機資料夾固定為 `0700`，下列檔案都是 `0600`；�
   first-party base URL 啟用時，**Remote Control 無法使用**。除非你明確自行設定
   `ENABLE_TOOL_SEARCH`，動態工具搜尋仍會保持啟用。
 - proxy 的設計與測試皆要求 response 不被緩衝。macOS 的直連與 proxy 手動
-  session 比較未發現可重複的明顯延遲或批次輸出，Esc 中斷也正常；`v0.1.0`
-  不包含公開的儀器化延遲 benchmark。
+  session 比較未發現可重複的明顯延遲或批次輸出，Esc 中斷也正常；目前的
+  版本都不包含公開的儀器化延遲 benchmark。
 
 ## 疑難排解
 
@@ -355,6 +423,7 @@ Token Sprout 不會把憑證交給無法驗證的 listener。停止另一個服�
 請先移除整合，再移除執行檔：
 
 ```bash
+code --uninstall-extension macacacacaca.token-sprout   # 有安裝擴充套件時
 token-sprout uninstall-statusline
 token-sprout uninstall-claude
 pipx uninstall token-sprout
@@ -373,8 +442,35 @@ python3.13 -m venv .venv
 .venv/bin/pytest -W error
 ```
 
+VS Code 擴充套件需要 Node.js 22 以上：
+
+```bash
+cd vscode-extension
+npm ci --ignore-scripts
+npm run check && npm test       # 型別檢查與單元測試
+npm run test:integration        # 在隔離的 VS Code 內跑真正的 CLI
+npx vsce package --no-dependencies
+```
+
+`test:integration` 預設使用 `/Applications` 內的 macOS VS Code 與本 repo 的
+`.venv`；可用 `VSCODE_BIN`、`TOKEN_SPROUT_CLI` 覆寫。
+
+所有插畫都由同一支只用標準函式庫的腳本產生，讓 README、擴充套件與社群預覽圖
+保持一致：
+
+```bash
+python scripts/build_art.py           # 重新產生 SVG
+python scripts/build_art.py --check   # 已提交的 SVG 過期時失敗
+python scripts/build_art.py --png     # 另用 headless Chrome 輸出 PNG
+```
+
+美術方向只借用原則、不借用畫面：雙色切面的扁平造型參考《Monument Valley》
+（2014 Apple Design Award），層疊的大氣感地景參考《Alto's Odyssey》
+（2018 Apple Design Award）。所有圖形皆為原創。
+
 CI 會在 Python 3.10–3.13 執行測試、將 warning 當錯誤、編譯原始碼、檢查與稽核
-依賴、建立 wheel，並用乾淨環境 smoke-test wheel 安裝。
+依賴、建立 wheel、用乾淨環境 smoke-test wheel 安裝、確認產生的美術是最新的，
+並對擴充套件做型別檢查、測試、稽核與打包。
 
 | 檔案 | 責任 |
 |---|---|
@@ -383,10 +479,13 @@ CI 會在 Python 3.10–3.13 執行測試、將 warning 當錯誤、編譯原始
 | `token_sprout/state.py` | 私有權限、single-writer state、lock、atomic replace |
 | `token_sprout/game.py` | token 到植物成長的規則 |
 | `token_sprout/ui.py`, `ascii_art.py` | 唯讀狀態與動畫顯示 |
+| `token_sprout/feed.py` | 給編輯器用的唯讀 JSON 資料流（`watch --json`） |
 | `token_sprout/cli.py` | CLI、生命週期、shell 整合與 statusline 安裝器 |
+| `vscode-extension/` | VS Code 狀態列項目與插畫側邊欄 |
+| `scripts/build_art.py` | 產生所有插畫 |
 
-Repo 內的 [`docs/technical-spec.md`](docs/technical-spec.md) 是 v0.1 最高權威技術
-規格；如果與實作決策衝突，以該文件為準。
+Repo 內的 [`docs/technical-spec.md`](docs/technical-spec.md) 是最高權威技術規格
+（v0.1，v0.2 增補見 §15）；如果與實作決策衝突，以該文件為準。
 
 ## License
 

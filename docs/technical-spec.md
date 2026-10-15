@@ -1,10 +1,12 @@
-# Token Sprout 🌿 — v0.1 Technical Spec
+# Token Sprout 🌿 — v0.1 Technical Spec（含 v0.2 增補）
 
 > 將 AI Agent 消耗的 API Token 轉化為終端機裡的植物養分。
 > 讓等待 AI 思考的時間，變成「看著植物被 Token 澆水」的養成體驗。
 
 > **文件定位**：這是 v0.1 的實作規格（technical spec），不只是願景藍圖。
 > 任何與本文件衝突的實作決定，必須先回來改這份文件。
+> v0.2 的增補（VS Code extension、editor feed、美術系統）集中在 §15；其餘章節
+> 除明確註記處外，維持 v0.1 規格。
 
 ---
 
@@ -13,6 +15,9 @@
 - **是什麼**：本機透明 proxy，攔截 Anthropic API response 的 token usage metadata，餵給一株終端機 ASCII 植物。
 - **最高工程原則**：**proxy 絕對不能弄壞 Claude Code**。所有設計決策以此為最優先，植物功能其次。
 - **架構一句話**：byte-level 透明轉發 + 旁路（tee）解析 usage + 單一 JSON state 檔 + 獨立 terminal UI。
+- **v0.2**：新增 VS Code extension（視窗右下角狀態列＋插畫側邊欄），只透過唯讀的
+  `token-sprout watch --json` 讀植物；全部插畫改由 `scripts/build_art.py` 產生
+  （§15）。proxy 與 state 協議不變。
 - **成敗關鍵**：不在植物，在 proxy 的透明度。`v0.1.0` 的發布基準是 macOS
   真實 API key／訂閱 OAuth session、Esc 中斷，以及直連與 proxy 的手動串流
   比較皆通過；儀器化 latency benchmark 留作發布後補強，不作為首版阻擋項。
@@ -73,7 +78,7 @@ v0.1 不追求完整遊戲系統，只追求一個清楚、穩定、好 demo 的
 - 不做雲端同步、帳號系統。
 - 不做 prompt / response / API key / OAuth token 的任何形式儲存或記錄。
 - 不做多植物種類。
-- 不做 VSCode extension。
+- 不做 VSCode extension（v0.2 已補，見 §15）。
 - 不做完整寵物互動系統。
 - 不做 MCP 作為核心架構。
 - 不做升級特效動畫（降級為一行文字訊息 + 更換 ASCII art）。
@@ -109,6 +114,7 @@ Proxy ──立即轉發原始 bytes──> Claude Code        （主路徑：�
                         |  poll / read-only
                         v
                   Terminal UI（token-sprout watch）
+                  v0.2：VS Code extension ← token-sprout watch --json（§15）
 ```
 
 ### 終端機使用情境
@@ -301,6 +307,9 @@ v0.1 用 JSON，不用 SQLite。pydantic 可以用在這一層（state 是我們
 - `active_requests > 0` 時播放澆水動畫；升階/開花顯示一行訊息，**不做特效動畫**。
 - watch 宣告最小尺寸（44×12），小於顯示提示；**不做 responsive layout**。
 - Polling `plant_state.json`，4–10 Hz；純讀取，不影響 proxy。
+- **VS Code extension**（v0.2，§15）：真正的視窗右下角狀態列與插畫側邊欄；資料
+  只來自 `token-sprout watch --json`，與 statusline 同一份 `plant_view()` 數字。
+  終端機顯示端（statusline / watch / status）仍維持 emoji，不使用插畫。
 
 ---
 
@@ -367,6 +376,7 @@ token-sprout run -- <command>      # 底層／手動入口：自動確保 proxy 
 token-sprout install-claude        # 一次性安裝 managed shell function；之後只打 claude
 token-sprout uninstall-claude      # 只移除上面的 managed block
 token-sprout watch           # 植物動畫 UI（完整版，獨立終端機）
+token-sprout watch --json    # v0.2：唯讀 JSON lines，給編輯器整合（§15.1）
 token-sprout statusline      # 給 Claude Code statusLine hook 的單行植物：
                              # 消耗 token 時出現（含即時估算計數），閒置時整行消失；
                              # --always 改為閒置時顯示安靜縮小版
@@ -391,8 +401,8 @@ Claude Code 的 `statusLine` 設定會以約 300ms 節流執行指定指令，�
 預覽下一世代。回應結束時仍只以真實 usage 結算並校正。`--always` 閒置模式維持
 安靜縮小版，不顯示水滴、進度條或估算數字。
 在 TUI 上疊浮動視窗（右下角 overlay）已評估並否決：需要攔改 Claude Code 的
-畫面輸出，違反「不弄壞 Claude Code」原則。真正的視窗右下角體驗由 v0.2 的
-VSCode 狀態列 extension 承接。
+畫面輸出，違反「不弄壞 Claude Code」原則。真正的視窗右下角體驗已由 v0.2 的
+VS Code extension 承接（§15）。
 
 ---
 
@@ -437,7 +447,11 @@ token-sprout/
 ├── README.zh-TW.md
 ├── SECURITY.md
 ├── docs/
-│   └── token-sprout-overview.svg
+│   ├── technical-spec.md
+│   └── assets/            # v0.2：全部由 scripts/build_art.py 產生（§15.3）
+├── scripts/
+│   └── build_art.py       # v0.2：插畫產生器（只用標準函式庫）
+├── vscode-extension/      # v0.2：VS Code extension（§15.2）
 ├── pyproject.toml
 ├── LICENSE                # MIT
 ├── token_sprout/
@@ -448,6 +462,7 @@ token-sprout/
 │   ├── state.py
 │   ├── game.py
 │   ├── ui.py
+│   ├── feed.py            # v0.2：watch --json（§15.1）
 │   └── ascii_art.py
 ├── examples/
 │   └── plant_state.example.json
@@ -469,7 +484,8 @@ token-sprout/
 | `state.py` | single-writer state、filelock、atomic rename |
 | `game.py` | token → EXP → level / stage / generation |
 | `ui.py` | rich terminal UI（read-only） |
-| `ascii_art.py` | 植物 ASCII art |
+| `ascii_art.py` | 階段 emoji 與各顯示端共用的文字（含升階事件 `transition()`） |
+| `feed.py` | v0.2：`watch --json` 唯讀 editor feed |
 
 ---
 
@@ -547,6 +563,17 @@ token-sprout/
   不阻擋首個正式 `v0.1.0`。
 
 > Issue / PR templates 不是發布阻擋項，發布後再補。
+
+### Milestone 4 — v0.2.0：VS Code extension 與美術重製
+
+- [x] `token-sprout watch --json` 唯讀 feed（§15.1）＋ Python 單元測試與跨語言
+  contract fixture。
+- [x] VS Code extension：狀態列、插畫側邊欄、英文／繁中、型別檢查與 Node 單元測試。
+- [x] 真實 VS Code（macOS、1.142）整合測試：真正的 CLI ＋ 暫存
+  `TOKEN_SPROUT_HOME`，涵蓋閒置、思考中、側邊欄、升階通知與找不到 CLI。
+- [x] `scripts/build_art.py` 產生全部插畫；CI 以 `--check` 防止過期。
+- [x] 發布 `v0.2.0`（tag + GitHub Release，附 wheel、sdist、`.vsix`）。
+- [ ] 上架 Visual Studio Marketplace / Open VSX（需要 publisher 帳號，發布後處理）。
 
 ---
 
@@ -640,7 +667,7 @@ v0.1 成功後再考慮：
 - 升級特效與更豐富動畫。
 - 支援 OpenAI-compatible gateway。
 - 支援 Aider、Continue、OpenCode 等其他 agents（每個 client 都需獨立驗證 header / auth 行為）。
-- VSCode sidebar extension。
+- ~~VSCode sidebar extension~~（v0.2 已完成，§15）。
 - 可匯出的成長卡片。
 - hooks / transcript 模式作為免 proxy 的輕量選項。
 
@@ -663,3 +690,100 @@ v0.1 成功不等於功能很多，而是 demo 清楚、proxy 隱形。
 AI is thinking.
 Your plant is drinking tokens.
 ```
+
+---
+
+## 15. v0.2 增補：VS Code extension、editor feed 與美術系統
+
+v0.2 的目標是兌現 §6「真正的視窗右下角」：在 VS Code 狀態列與側邊欄顯示同一株
+植物。**proxy、state 協議與成長數值完全不變**；新增的只有讀取端。
+
+### 15.1 Editor feed：`token-sprout watch --json`（normative）
+
+- 輸出 NDJSON：每行一個 JSON 物件，ASCII-only（emoji 以 `\u` escape），讀取端
+  不依賴本行程的 locale。啟動時立刻輸出第一行，之後以 5 Hz polling，內容有變才輸出。
+- **嚴格唯讀**：不取 lock、不寫檔、不呼叫 `init_home()`，也不建立
+  `~/.token-sprout/`。讀到壞檔沿用上一幀（同 `watch`）。
+- 結束條件：父行程消失（`getppid()` 改變）、stdout 管線關閉（`BrokenPipeError`，
+  安靜結束）、`KeyboardInterrupt`。
+- 不得 import `rich`、`starlette`、`httpx`、`uvicorn`（測試強制），讓常駐行程維持輕量。
+- Payload（protocol 1）：
+
+```json
+{
+  "protocol": 1,
+  "version": "0.2.0",
+  "thinking": true,
+  "active_requests": 2,
+  "live_tokens_estimate": 5000,
+  "glyph": "🌱",
+  "view": { "...": "game.plant_view(state, pending_exp=live) 的完整輸出" },
+  "totals": { "total": 0, "input": 0, "output": 0, "cache_creation": 0, "cache_read": 0 },
+  "last_request": { "tokens": 0, "finished_at": null },
+  "transition": null,
+  "notice": null
+}
+```
+
+  - `view` 一律是 `game.plant_view(state, pending_exp=live)`；閒置時 `live = 0`
+    （即使 state 裡殘留估算值），與 statusline 的唯讀預覽語意相同。
+  - `transition` 是升階事件：`null`、`{"kind": "stage_up", "stage": …}`、
+    `{"kind": "bloom"}` 或 `{"kind": "generation", "generation": …}`，由
+    `ascii_art.transition()` 比較前後兩幀已結算的 state 得出；`notice` 是同一事件的
+    英文訊息（`describe_transition()`）。在地化的讀取端用 `transition`。
+- 相容性：只新增欄位不需改版；移除或改變既有欄位語意必須把 `protocol` 加一。
+  `vscode-extension/test/fixtures/snapshots.json` 是跨語言 contract：Python 與 Node
+  兩邊的測試都讀它，任一邊改了格式另一邊就會失敗。
+
+### 15.2 VS Code extension（normative）
+
+- 位置 `vscode-extension/`。純 JavaScript（CommonJS）＋ `// @ts-check`，以
+  `tsc --noEmit` 做 strict 型別檢查；**沒有 runtime 依賴、沒有 bundler**——發布的
+  程式碼就是原始碼，可直接稽核。devDependencies 版本固定並提交 lockfile，安裝一律
+  `--ignore-scripts`。
+- **資料來源只有 `watch --json`**：extension 不直接讀 `~/.token-sprout/`，也不重算
+  階段或進度；`src/format.js` 只驗證並格式化 CLI 給的數字（對應「所有顯示端一律走
+  `game.plant_view()`」原則）。每一行先驗證型別與範圍，不合格的行丟棄。
+- 行程管理：不經 shell，參數固定為 `["watch", "--json"]`。異常結束以指數退避重啟
+  （1 s → 60 s，連續健康運作 30 s 後重置）；找不到執行檔、CLI 太舊或 protocol 不符
+  時每 60 s 重試。「CLI 太舊」的判定：尚未收到任何一行、exit code 2，且 stderr 含
+  argparse 的 `unrecognized arguments` / `invalid choice`。
+- 執行檔解析順序：`tokenSprout.executablePath`（**scope 為 `machine`**，工作區設定
+  無法覆寫；必須是絕對路徑；有設定就不再 fallback）→ `PATH` 中的**絕對**路徑
+  （相對路徑一律略過，避免工作區資料夾提供執行檔）→ `~/.local/bin`。
+- `extensionKind: ["workspace"]`：在 CLI 與 state 所在的那一端執行
+  （WSL / Remote - SSH / Dev Containers）。
+- 狀態列：靠右、priority −1000（右下角）。文字對齊 Claude Code statusline：閒置
+  `🌱 2/20`、思考中 `🌱 2/20 · 💧 67% · +5,000`、開花 `🌸 in bloom`；升階事件顯示
+  4 秒。設定 `tokenSprout.statusBar.visibility`（`always` / `thinking` / `hidden`）
+  與 `tokenSprout.statusBar.showPile`。找不到 CLI、版本太舊、協定不符或資料流中斷
+  時顯示 `$(warning) Token Sprout`（warning 背景）與處理說明。
+- 側邊欄 webview：CSP 為 `default-src 'none'; img-src <cspSource>;
+  style-src <cspSource>; script-src 'nonce-…'`，`localResourceRoots` 只有
+  `media/`；資料只以 `textContent`、class 與 CSS custom property 呈現；webview
+  只能送出 `ready` / `setup` / `retry` 三種訊息。尊重 `prefers-reduced-motion`。
+- 不發出網路請求、沒有 telemetry、不寫任何檔案，也不提供會改動植物的指令（`reset`
+  只留在 CLI）。
+- 在地化：英文與繁體中文（`vscode.l10n` bundle 與 `package.nls.*.json`）。
+- 測試：`node --test` 單元測試（format / locate / 以假 CLI 測 feed 行程管理）、
+  15.1 的 contract fixture，以及 `test/integration/` 在真實 VS Code 中以真正的 CLI
+  ＋ 暫存 `TOKEN_SPROUT_HOME` 跑端到端流程（隔離的 user-data 與 extensions 目錄）。
+- 散布：v0.2.0 以 `.vsix` 附在 GitHub Release；Marketplace / Open VSX 待建立
+  publisher 帳號後再上架。
+
+### 15.3 美術系統
+
+- **單一來源**：`scripts/build_art.py`（只用標準函式庫、輸出 deterministic）產生
+  `docs/assets/` 的植物五階段、README 主視覺／運作方式／成長階梯（淺色＋深色 ×
+  英文＋繁中）、社群預覽與圖示，以及 `vscode-extension/media/` 的植物與場景。
+  `--check` 供 CI 確認提交的 SVG 沒有過期；`--png` 以 headless Chrome 另外輸出
+  `icon.png` 與 `social-preview.png`（二進位、不納入 `--check`）。
+  `docs/assets/vscode-preview.png` 是真實 webview 在 VS Code 主題色下的渲染圖，
+  不由腳本產生。
+- **美術方向**：只借原則、不借畫面——雙色切面的扁平幾何與克制的粉彩配色參考
+  《Monument Valley》（2014 Apple Design Award），層疊的大氣感地景與晝夜場景參考
+  《Alto's Odyssey》（2018 Apple Design Award）。所有圖形皆為原創。
+- 植物在所有主題使用同一套配色；場景隨主題切換：淺色＝清晨、深色＝夜晚。每個
+  階段共用同一個陶盆，造型對應終端機 emoji（🌰🌱🪴🌷🌸），讓兩種顯示端看得出是
+  同一株植物。
+- 終端機顯示端維持 emoji（§5.3）；插畫只用於 README 與 VS Code extension。

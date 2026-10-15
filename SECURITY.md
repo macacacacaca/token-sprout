@@ -23,5 +23,7 @@ timeline will be coordinated through the private report.
 The proxy listens only on `127.0.0.1`. It forwards authentication headers but
 does not parse, log, or persist them. A malicious process running as the same
 OS user is outside the threat boundary because it can already read that
-user's Claude credentials. See the README's security model for the complete,
-auditable list of files written to disk.
+user's Claude credentials. The VS Code extension is in scope as well: it only
+runs `token-sprout watch --json` and displays its output, makes no network
+requests, and writes no files. See the README's security model for the
+complete, auditable list of files written to disk.

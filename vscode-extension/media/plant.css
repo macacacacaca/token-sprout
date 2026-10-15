@@ -1,0 +1,460 @@
+/* Token Sprout sidebar. Dawn scene in light themes, night in dark ones. */
+
+:root {
+  --ts-seed: #c9844c;
+  --ts-sprout: #7cc67a;
+  --ts-leaf: #4c9a5c;
+  --ts-bud: #ec7e9b;
+  --ts-bloom: #f7a4bc;
+  --ts-water: #6db6ea;
+  --ts-card: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.08));
+  --ts-border: var(--vscode-widget-border, rgba(127, 127, 127, 0.22));
+  --ts-muted: var(--vscode-descriptionForeground, rgba(127, 127, 127, 0.9));
+  --ts-empty: rgba(127, 127, 127, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 12px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background, transparent);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.45;
+}
+
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.muted {
+  color: var(--ts-muted);
+}
+
+/* Scene ------------------------------------------------------------- */
+
+.scene {
+  position: relative;
+  height: 212px;
+  margin: 12px 12px 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: url("scene-light.svg") center bottom / cover no-repeat;
+}
+
+body.vscode-dark .scene {
+  background-image: url("scene-dark.svg");
+}
+
+body.vscode-high-contrast .scene,
+body.vscode-high-contrast-light .scene {
+  background: none;
+  border: 1px solid var(--vscode-contrastBorder, currentColor);
+}
+
+.plant {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 176px;
+  height: 176px;
+  transform: translateX(-50%);
+  transform-origin: 50% 94%;
+}
+
+.garden[data-state="running"] .plant {
+  animation: breathe 6s ease-in-out infinite;
+}
+
+.garden.thinking .plant {
+  animation-duration: 2.4s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1, 1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.012, 1.03);
+  }
+}
+
+.rain {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.garden.thinking .rain {
+  opacity: 1;
+}
+
+.drop {
+  position: absolute;
+  top: -26px;
+  width: 13px;
+  height: 20px;
+  opacity: 0;
+}
+
+.drop path {
+  fill: var(--ts-water);
+}
+
+.drop ellipse {
+  fill: #ddf1ff;
+}
+
+.garden.thinking .drop {
+  animation: fall 1.7s cubic-bezier(0.45, 0, 0.75, 0.6) infinite;
+}
+
+.drop-1 {
+  left: calc(50% - 52px);
+}
+
+.drop-2 {
+  left: calc(50% + 22px);
+  animation-delay: 0.45s !important;
+}
+
+.drop-3 {
+  left: calc(50% - 14px);
+  animation-delay: 0.9s !important;
+}
+
+.drop-4 {
+  left: calc(50% + 50px);
+  animation-delay: 1.3s !important;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(118px);
+    opacity: 0;
+  }
+}
+
+.burst span {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #f6c350;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+}
+
+.burst span:nth-child(1) {
+  left: calc(50% - 70px);
+  top: 46px;
+}
+
+.burst span:nth-child(2) {
+  left: calc(50% + 58px);
+  top: 30px;
+}
+
+.burst span:nth-child(3) {
+  left: calc(50% + 44px);
+  top: 92px;
+}
+
+.burst span:nth-child(4) {
+  left: calc(50% - 48px);
+  top: 104px;
+}
+
+.garden.celebrate .burst span {
+  animation: twinkle 1.2s ease-in-out 3;
+}
+
+.garden.celebrate .burst span:nth-child(even) {
+  animation-delay: 0.3s;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+/* Notice ------------------------------------------------------------ */
+
+.toast {
+  margin: 0 12px;
+  padding: 0 12px;
+  max-height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+  background: var(--vscode-notifications-background, var(--ts-card));
+  font-weight: 600;
+  transition: max-height 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+}
+
+.toast.show {
+  max-height: 60px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  box-shadow: inset 0 0 0 1px var(--ts-border);
+}
+
+/* Cards ------------------------------------------------------------- */
+
+.card {
+  margin: 12px 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ts-card);
+  border: 1px solid var(--ts-border);
+}
+
+.growth-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.growth-head h2 {
+  font-size: 1.25em;
+  font-weight: 700;
+}
+
+.generation {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  font-size: 0.85em;
+}
+
+.tray {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+  margin: 12px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.tray li {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ts-empty);
+}
+
+.tray li.full {
+  background: var(--ts-stage, var(--ts-seed));
+}
+
+.tray li.next {
+  background: conic-gradient(var(--ts-stage, var(--ts-seed)) var(--p, 0%), var(--ts-empty) 0);
+}
+
+.garden[data-stage="seed"] {
+  --ts-stage: var(--ts-seed);
+}
+
+.garden[data-stage="sprout"] {
+  --ts-stage: var(--ts-sprout);
+}
+
+.garden[data-stage="leaf"] {
+  --ts-stage: var(--ts-leaf);
+}
+
+.garden[data-stage="bud"] {
+  --ts-stage: var(--ts-bud);
+}
+
+.garden[data-stage="bloom"] {
+  --ts-stage: var(--ts-bloom);
+}
+
+.meter {
+  height: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ts-empty);
+}
+
+.meter-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ts-stage, var(--ts-seed));
+  transition: width 0.4s ease;
+}
+
+.activity-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.pulse {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ts-muted);
+  opacity: 0.6;
+}
+
+.garden.thinking .pulse {
+  background: var(--ts-water);
+  opacity: 1;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(109, 182, 234, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(109, 182, 234, 0);
+  }
+}
+
+#estimate:empty {
+  display: none;
+}
+
+.totals h3 {
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ts-muted);
+}
+
+.total {
+  margin: 2px 0 8px;
+  font-size: 1.35em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0 0 8px;
+}
+
+dt {
+  color: var(--ts-muted);
+}
+
+dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Problem ----------------------------------------------------------- */
+
+.problem h2 {
+  font-size: 1.1em;
+  margin-bottom: 6px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+button {
+  padding: 5px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+button.secondary {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+button.secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+footer {
+  margin: 12px 12px 0;
+  font-size: 0.85em;
+}
+
+/* Which sections show for each feed state. */
+
+.garden:not([data-state="running"]) :is(.growth, .activity, .totals, .toast) {
+  display: none;
+}
+
+.garden:not([data-state="problem"]) .problem,
+.garden:not([data-state="starting"]) .starting {
+  display: none;
+}
+
+.starting {
+  margin: 12px 14px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plant,
+  .drop,
+  .burst span,
+  .pulse,
+  .meter-fill,
+  .toast {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .garden.thinking .drop-1 {
+    opacity: 1;
+    transform: translateY(40px);
+  }
+}

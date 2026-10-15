@@ -44,8 +44,32 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip build pip-audit
       - run: python -m pip install -e .
+      # Every SVG under docs/assets and vscode-extension/media is generated.
+      - run: python scripts/build_art.py --check
       - run: python -m build
       - run: python -m pip_audit --local --skip-editable
       - run: python -m venv /tmp/token-sprout-wheel-smoke
       - run: /tmp/token-sprout-wheel-smoke/bin/pip install dist/*.whl
       - run: /tmp/token-sprout-wheel-smoke/bin/token-sprout --version
+
+  vscode-extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      # Dev tooling only: the extension ships no runtime dependencies, and no
+      # package install script ever runs.
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=moderate
+      - run: npm run check
+      - run: npm test
+      - run: npx vsce package --no-dependencies

@@ -1,0 +1,13 @@
+{
+  "description": "Watch your Claude Code tokens grow a tiny plant in the VS Code status bar and sidebar.",
+  "view.plant": "Plant",
+  "command.showPlant": "Show Plant",
+  "command.restart": "Restart Plant Feed",
+  "command.openSetupGuide": "Open Setup Guide",
+  "config.executablePath": "Absolute path to the `token-sprout` CLI (0.2.0 or newer). Leave empty to search `PATH` and `~/.local/bin`. Machine-scoped, so a workspace cannot change which program runs.",
+  "config.visibility": "When the plant appears in the status bar.",
+  "config.visibility.always": "Always show the plant; add the watering progress while Claude is thinking.",
+  "config.visibility.thinking": "Show the plant only while Claude is thinking, like the Claude Code status line.",
+  "config.visibility.hidden": "Never show the status bar item (the sidebar view still works).",
+  "config.showPile": "Repeat the stage emoji once per unit (`🌱🌱🌱 3/20`) instead of showing it once (`🌱 3/20`)."
+}

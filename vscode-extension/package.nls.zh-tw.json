@@ -1,0 +1,13 @@
+{
+  "description": "在 VS Code 狀態列與側邊欄，看著你的 Claude Code token 養大一株小植物。",
+  "view.plant": "植物",
+  "command.showPlant": "顯示植物",
+  "command.restart": "重新啟動植物資料流",
+  "command.openSetupGuide": "開啟安裝說明",
+  "config.executablePath": "`token-sprout` CLI（0.2.0 以上）的絕對路徑。留空時會搜尋 `PATH` 與 `~/.local/bin`。此設定限定於本機層級，工作區無法改變要執行的程式。",
+  "config.visibility": "植物何時出現在狀態列。",
+  "config.visibility.always": "一律顯示植物；Claude 思考時加上澆水進度。",
+  "config.visibility.thinking": "只在 Claude 思考時顯示，與 Claude Code 狀態列相同。",
+  "config.visibility.hidden": "不顯示狀態列項目（側邊欄面板仍可使用）。",
+  "config.showPile": "每顆單位都重複一次階段 emoji（`🌱🌱🌱 3/20`），而不是只顯示一次（`🌱 3/20`）。"
+}
