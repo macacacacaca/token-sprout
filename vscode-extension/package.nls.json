@@ -9,5 +9,8 @@
   "config.visibility.always": "Always show the plant; add the watering progress while Claude is thinking.",
   "config.visibility.thinking": "Show the plant only while Claude is thinking, like the Claude Code status line.",
   "config.visibility.hidden": "Never show the status bar item (the sidebar view still works).",
-  "config.showPile": "Repeat the stage emoji once per unit (`🌱🌱🌱 3/20`) instead of showing it once (`🌱 3/20`)."
+  "config.showPile": "Repeat the stage emoji once per unit (`🌱🌱🌱 3/20`) instead of showing it once (`🌱 3/20`).",
+  "command.connectClaudeCode": "Connect Claude Code",
+  "command.disconnectClaudeCode": "Disconnect Claude Code",
+  "config.suggestClaudeCodeConnection": "Offer to connect the Claude Code extension when its conversations bypass Token Sprout. **Don't ask again** turns this off."
 }

@@ -65,12 +65,56 @@ def _warn_if_foreign_upstream(upstream: str) -> None:
         )
 
 
+def _bind_listener(port: int):
+    """Bind 127.0.0.1:port up front, so a lost race fails fast and visibly."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", port))
+    except OSError:
+        sock.close()
+        raise
+    sock.set_inheritable(True)
+    return sock
+
+
+def _daemonize() -> None:
+    """Detach from the launching session (double fork); returns in the daemon.
+
+    The launcher exits immediately, so whoever started it (`run`, the editor
+    wrapper) can wait for it without keeping a child process around.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if os.fork() > 0:
+        os._exit(0)
+    os.setsid()  # no controlling terminal: closing it cannot SIGHUP us
+    if os.fork() > 0:
+        os._exit(0)
+    devnull = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(devnull, 0)
+    os.close(devnull)
+
+
 def _cmd_proxy(args: argparse.Namespace) -> int:
     import uvicorn
 
     from .proxy import create_app
 
     _warn_if_foreign_upstream(args.upstream)
+
+    listener = None
+    if args.background:
+        # Bind before detaching: losing a race to another session's proxy is
+        # an immediate, visible failure instead of a silent dead daemon.
+        try:
+            listener = _bind_listener(args.port)
+        except OSError as exc:
+            print(f"error: cannot listen on 127.0.0.1:{args.port}: {exc.strerror}", file=sys.stderr)
+            return 1
+        _daemonize()
 
     logging.basicConfig(
         level=logging.INFO,
@@ -100,8 +144,11 @@ def _cmd_proxy(args: argparse.Namespace) -> int:
     print("⚠️  Do not put ANTHROPIC_BASE_URL in your shell rc file — Claude Code")
     print("    will break whenever this proxy is not running.")
     print()
+    # uvicorn re-raises SIGTERM after its graceful shutdown, which ends the
+    # process before Python would flush a redirected stdout (proxy.log).
+    sys.stdout.flush()
 
-    uvicorn.run(
+    config = uvicorn.Config(
         create_app(upstream=args.upstream, listen_port=args.port),
         # Spec §5.1: localhost only, no override flag in v0.1.
         host="127.0.0.1",
@@ -109,18 +156,26 @@ def _cmd_proxy(args: argparse.Namespace) -> int:
         access_log=False,
         log_level="warning",
         # Bound the graceful drain: without this uvicorn waits forever for
-        # in-flight streams, and `run`'s SIGTERM→5s→SIGKILL budget would
-        # hard-kill us before the state writer flushes. Cancelled streams
-        # settle with the last usage seen (spec §5.1 interrupt policy),
-        # then the lifespan shutdown flushes the writer.
+        # in-flight streams, and `stop`'s SIGTERM would wait on them before
+        # the state writer flushes. Cancelled streams settle with the last
+        # usage seen (spec §5.1 interrupt policy), then the lifespan
+        # shutdown flushes the writer.
         timeout_graceful_shutdown=3,
     )
-    return 0
+    server = uvicorn.Server(config)
+    with contextlib.suppress(KeyboardInterrupt):
+        server.run(sockets=[listener] if listener is not None else None)
+    return 0 if server.started else 3  # uvicorn's own startup-failure code
 
 
 def _proxy_health(port: int) -> bool:
-    """True only when the listener on the port proves it holds our 0600
-    secret via a port-bound HMAC challenge.
+    """True only when the listener on the port is our verified proxy."""
+    return _proxy_identity(port) is not None
+
+
+def _proxy_identity(port: int) -> dict | None:
+    """The health response of a listener that proves it holds our 0600
+    secret via a port-bound HMAC challenge; None for anything else.
 
     A rogue local process (e.g. another OS user who grabbed 127.0.0.1:PORT
     first) could answer the health path with a canned ``{"app":
@@ -141,7 +196,7 @@ def _proxy_health(port: int) -> bool:
         # No secret yet ⇒ we've never started a proxy, so trust nothing on
         # the port. `run` then treats it as occupied-by-a-stranger and
         # refuses rather than forwarding credentials.
-        return False
+        return None
     nonce = secrets.token_hex(16)
     try:
         resp = httpx.get(
@@ -150,16 +205,19 @@ def _proxy_health(port: int) -> bool:
             timeout=1.0,
         )
         if resp.status_code != 200:
-            return False
+            return None
         data = resp.json()
     except (httpx.HTTPError, ValueError):
-        return False
+        return None
     expected = state.health_proof(secret, port, nonce)
-    return (
-        data.get("app") == "token-sprout"
+    if (
+        isinstance(data, dict)
+        and data.get("app") == "token-sprout"
         and data.get("port") == port
         and hmac.compare_digest(str(data.get("proof", "")), expected)
-    )
+    ):
+        return data
+    return None
 
 
 def _port_occupied(port: int) -> bool:
@@ -178,11 +236,66 @@ def _port_occupied(port: int) -> bool:
         return True
 
 
+PROXY_START_SECONDS = 15
+STRANGER_GRACE_SECONDS = 2
+
+
+class ProxyUnavailable(RuntimeError):
+    """The shared proxy could not be verified or started."""
+
+
+def _launch_proxy_daemon(port: int, upstream: str) -> None:
+    """Start `proxy --background`; the launcher returns once it detached."""
+    with state.open_proxy_log() as log_file:
+        subprocess.run(
+            [
+                sys.executable, "-m", "token_sprout.cli",
+                "proxy", "--port", str(port), "--upstream", upstream, "--background",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            timeout=PROXY_START_SECONDS,
+            check=False,
+        )
+
+
+def _ensure_shared_proxy(port: int, upstream: str) -> str:
+    """Reuse or start the one proxy every session shares.
+
+    Returns "reused" or "started"; raises ProxyUnavailable otherwise. The
+    proxy outlives the session that started it — other terminals and editor
+    windows may be using it — until `token-sprout stop` or logout.
+    """
+    state.init_home()
+    if _proxy_health(port):
+        return "reused"
+    launched = False
+    if not _port_occupied(port):
+        _launch_proxy_daemon(port, upstream)
+        launched = True
+    # Either we just launched it, or something holds the port — possibly a
+    # proxy another session is starting this very moment. Give it a moment.
+    budget = PROXY_START_SECONDS if launched else STRANGER_GRACE_SECONDS
+    deadline = time.monotonic() + budget
+    while time.monotonic() < deadline:
+        if _proxy_health(port):
+            return "started" if launched else "reused"
+        time.sleep(0.15)
+    if launched:
+        raise ProxyUnavailable(f"the proxy did not start (see {state.proxy_log_path()})")
+    raise ProxyUnavailable(f"port {port} is in use by something that isn't token-sprout")
+
+
+def _note(message: str) -> None:
+    """Status lines go to stderr: stdout belongs to the wrapped command."""
+    print(message, file=sys.stderr)
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
-    """One-terminal mode: ensure the proxy is up, then run an explicit command
-    with ANTHROPIC_BASE_URL scoped to that child only, clean up on exit. A
-    proxy we find already running is reused and left running; only a proxy we
-    spawned ourselves is stopped afterwards."""
+    """Ensure the shared proxy is up, then run an explicit command with
+    ANTHROPIC_BASE_URL scoped to that child only. The proxy keeps running
+    afterwards for other sessions; `token-sprout stop` ends it."""
     port = args.port
     base_url = f"http://127.0.0.1:{port}"
     state.init_home()
@@ -216,38 +329,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _report_missing_command(command[0])
         return 127
 
-    proxy_proc = None
-    if _proxy_health(port):
-        print(f"🌿 Reusing the Token Sprout proxy already running on port {port}")
+    try:
+        outcome = _ensure_shared_proxy(port, args.upstream)
+    except ProxyUnavailable as exc:
+        # Refuse rather than hand credentials to an unverified listener.
+        print(f"error: {exc} (try --port)", file=sys.stderr)
+        return 1
+    if outcome == "started":
+        _note(
+            f"🌿 Started the Token Sprout proxy on port {port}; it keeps running "
+            "for your other sessions (token-sprout stop ends it)"
+        )
     else:
-        if _port_occupied(port):
-            print(
-                f"error: port {port} is in use by something that isn't token-sprout "
-                f"(try --port)",
-                file=sys.stderr,
-            )
-            return 1
-        log_path = state.proxy_log_path()
-        with state.open_proxy_log() as log_file:
-            proxy_proc = subprocess.Popen(
-                [
-                    sys.executable, "-m", "token_sprout.cli",
-                    "proxy", "--port", str(port), "--upstream", args.upstream,
-                ],
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                # own session: Ctrl+C aimed at the foreground command must
-                # never reach the proxy
-                start_new_session=True,
-            )
-        deadline = time.monotonic() + 15
-        while not _proxy_health(port):
-            if proxy_proc.poll() is not None or time.monotonic() > deadline:
-                proxy_proc.terminate()
-                print(f"error: proxy failed to start — see {log_path}", file=sys.stderr)
-                return 1
-            time.sleep(0.15)
-        print(f"🌿 Token Sprout proxy started on port {port} (log: {log_path})")
+        _note(f"🌿 Using the Token Sprout proxy on port {port}")
 
     env = dict(os.environ)
     env["ANTHROPIC_BASE_URL"] = base_url
@@ -256,45 +350,174 @@ def _cmd_run(args: argparse.Namespace) -> int:
     env.setdefault("ENABLE_TOOL_SEARCH", "true")
     # Arguments can contain a prompt or other private text. Never echo them
     # into terminal scrollback or logs.
-    print(
-        f"→ {Path(command[0]).name} (arguments hidden; "
-        f"ANTHROPIC_BASE_URL={base_url})"
-    )
+    _note(f"→ {Path(command[0]).name} (arguments hidden; ANTHROPIC_BASE_URL={base_url})")
 
-    exit_code = 1
+    child = None
     try:
-        child = None
-        try:
-            child = subprocess.Popen(command, env=env)
-            # After spawning (so the child keeps default handlers): ignore
-            # Ctrl+C in the wrapper — the foreground command owns it, and we
-            # must stay alive to clean up the proxy afterwards.
-            previous_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        except FileNotFoundError:
-            # Race: resolved by the pre-check above, then vanished.
-            _report_missing_command(command[0])
-            return 127
-        except KeyboardInterrupt:
-            # Ctrl+C in the sliver between fork and SIG_IGN: the terminal
-            # delivered SIGINT to the child too. Reap it and exit like an
-            # interrupted command instead of dying with a traceback.
-            if child is not None:
-                with contextlib.suppress(Exception):
-                    child.terminate()
-                    child.wait(timeout=5)
-            return 130
-        try:
-            exit_code = child.wait()
-        finally:
-            signal.signal(signal.SIGINT, previous_sigint)
+        child = subprocess.Popen(command, env=env)
+    except FileNotFoundError:
+        # Race: resolved by the pre-check above, then vanished.
+        _report_missing_command(command[0])
+        return 127
+    except KeyboardInterrupt:
+        # Ctrl+C in the sliver between fork and the handlers below: the
+        # terminal delivered SIGINT to the child too. Reap it and exit like
+        # an interrupted command instead of dying with a traceback.
+        if child is not None:
+            with contextlib.suppress(Exception):
+                child.terminate()
+                child.wait(timeout=5)
+        return 130
+
+    def forward(signum: int, _frame: object) -> None:
+        with contextlib.suppress(ProcessLookupError):
+            child.send_signal(signum)
+
+    # After spawning (so the child keeps default handlers): Ctrl+C belongs to
+    # the foreground command, and a closing terminal or an editor stopping us
+    # must reach the command instead of orphaning it.
+    previous = {signal.SIGINT: signal.signal(signal.SIGINT, signal.SIG_IGN)}
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        previous[signum] = signal.signal(signum, forward)
+    try:
+        return child.wait()
     finally:
-        if proxy_proc is not None:
-            proxy_proc.terminate()
-            try:
-                proxy_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proxy_proc.kill()
-    return exit_code
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+
+def _cmd_stop(args: argparse.Namespace) -> int:
+    """Stop the shared proxy — only after it proves it is ours."""
+    port = args.port
+    identity = _proxy_identity(port)
+    if identity is None:
+        if _port_occupied(port):
+            print(
+                f"error: port {port} is in use by something that isn't token-sprout; "
+                "leaving it alone",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"No Token Sprout proxy is running on port {port}.")
+        return 0
+    pid = identity.get("pid")
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
+        print(
+            "error: this proxy predates `token-sprout stop`; end the session "
+            "that started it instead",
+            file=sys.stderr,
+        )
+        return 1
+    with contextlib.suppress(ProcessLookupError):
+        os.kill(pid, signal.SIGTERM)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if _proxy_identity(port) is None:
+            print(
+                f"Stopped the Token Sprout proxy on port {port}. Claude sessions "
+                "that were using it need a restart."
+            )
+            return 0
+        time.sleep(0.15)
+    print(f"error: the proxy (pid {pid}) did not stop in time", file=sys.stderr)
+    return 1
+
+
+# --- Editor process wrapper ----------------------------------------------------
+
+WRAPPER_PORT_ENV = "TOKEN_SPROUT_PORT"
+_THIRD_PARTY_PROVIDERS = (
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+)
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() not in ("", "0", "false", "no", "off")
+
+
+def _wrapper_port(env: dict) -> int | None:
+    raw = env.get(WRAPPER_PORT_ENV, "").strip()
+    if not raw:
+        return 8000
+    return int(raw) if raw.isdigit() and 1024 <= int(raw) <= 65535 else None
+
+
+def _wrapper_bypass_reason(env: dict) -> str | None:
+    """Why this launch must not be routed through the proxy, if at all."""
+    if env.get("ANTHROPIC_BASE_URL"):
+        return "ANTHROPIC_BASE_URL is already set"
+    for name in _THIRD_PARTY_PROVIDERS:
+        if _truthy(env.get(name)):
+            return f"{name} is set"
+    if _truthy(env.get("TOKEN_SPROUT_DISABLE")):
+        return "TOKEN_SPROUT_DISABLE is set"
+    if _wrapper_port(env) is None:
+        return f"{WRAPPER_PORT_ENV} is not a port number"
+    return None
+
+
+def _wrapper_command(args: list[str]) -> list[str] | None:
+    """The Claude command line an editor handed us.
+
+    VS Code's Claude Code extension passes the bundled executable first and
+    its own arguments after it; when it has no bundled binary it passes only
+    the arguments, so fall back to `claude` on PATH.
+    """
+    if args and os.path.isabs(args[0]):
+        return args  # exec reports a missing or non-executable file itself
+    claude = shutil.which("claude")
+    if claude is None:
+        return None
+    return [claude, *args]
+
+
+def claude_wrapper_main(argv: list[str] | None = None) -> int:
+    """`token-sprout-claude <claude> [args...]` — the process wrapper for
+    editors (VS Code: the claudeCode.claudeProcessWrapper setting).
+
+    Fail-open by construction: when the shared proxy cannot be verified or
+    started, Claude Code still starts, directly and without the plant. It
+    writes only to stderr (stdout carries the editor's protocol), never
+    prints the arguments, and replaces itself with Claude (exec), so stdio
+    and signals reach Claude untouched.
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    command = _wrapper_command(args)
+    if command is None:
+        print(
+            "usage: token-sprout-claude <claude-executable> [arguments...]\n"
+            "Set this file as Claude Code's process wrapper in VS Code "
+            "(Token Sprout: Connect Claude Code).",
+            file=sys.stderr,
+        )
+        return 2
+
+    env = dict(os.environ)
+    reason = _wrapper_bypass_reason(env)
+    port = _wrapper_port(env)
+    if reason is None and port is not None:
+        try:
+            _ensure_shared_proxy(port, DEFAULT_UPSTREAM)
+        except ProxyUnavailable as exc:
+            reason = str(exc)
+        except Exception as exc:  # noqa: BLE001 - never block Claude
+            reason = f"unexpected {type(exc).__name__}"
+    if reason is None:
+        env["ANTHROPIC_BASE_URL"] = f"http://127.0.0.1:{port}"
+        env.setdefault("ENABLE_TOOL_SEARCH", "true")
+    else:
+        print(f"token-sprout: starting Claude Code without the plant: {reason}", file=sys.stderr)
+
+    try:
+        os.execvpe(command[0], command, env)
+    except OSError as exc:
+        print(
+            f"token-sprout: could not start {Path(command[0]).name}: {exc.strerror or exc}",
+            file=sys.stderr,
+        )
+    return 127
 
 
 def _report_missing_command(name: str) -> None:
@@ -803,7 +1026,13 @@ def build_parser() -> argparse.ArgumentParser:
     # contradicts the "exactly one place: Anthropic" promise. Kept for tests
     # and advanced use; warned about loudly at runtime.
     p_proxy.add_argument("--upstream", default=DEFAULT_UPSTREAM, help=argparse.SUPPRESS)
+    # Internal: how `run` and the editor wrapper start the shared proxy.
+    p_proxy.add_argument("--background", action="store_true", help=argparse.SUPPRESS)
     p_proxy.set_defaults(func=_cmd_proxy)
+
+    p_stop = sub.add_parser("stop", help="Stop the shared background proxy")
+    p_stop.add_argument("--port", type=int, default=8000)
+    p_stop.set_defaults(func=_cmd_stop)
 
     p_run = sub.add_parser(
         "run",

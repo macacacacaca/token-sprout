@@ -6,7 +6,7 @@ const vscode = require('vscode');
 const { STAGES } = require('./format');
 
 /** Messages the webview may send; anything else is ignored. */
-const WEBVIEW_MESSAGES = new Set(['ready', 'setup', 'retry']);
+const WEBVIEW_MESSAGES = new Set(['ready', 'setup', 'retry', 'connect']);
 
 /**
  * The illustrated sidebar view. It renders a ready-made view model (see
@@ -17,7 +17,7 @@ const WEBVIEW_MESSAGES = new Set(['ready', 'setup', 'retry']);
 class PlantViewProvider {
   /**
    * @param {vscode.Uri} extensionUri
-   * @param {(message: 'setup' | 'retry') => void} onAction
+   * @param {(message: 'setup' | 'retry' | 'connect') => void} onAction
    */
   constructor(extensionUri, onAction) {
     this.extensionUri = extensionUri;
@@ -95,6 +95,11 @@ class PlantViewProvider {
     <div class="burst"><span></span><span></span><span></span><span></span></div>
   </section>
   <p class="toast" id="toast" role="status" aria-live="polite"></p>
+  <section class="card connect" id="connect">
+    <h3 id="connect-title"></h3>
+    <p class="muted" id="connect-detail"></p>
+    <div class="actions"><button type="button" id="connect-button"></button></div>
+  </section>
   <section class="card growth" id="growth">
     <div class="growth-head">
       <h2 id="headline"></h2>
@@ -129,7 +134,7 @@ class PlantViewProvider {
     </div>
   </section>
   <p class="starting muted" id="starting"></p>
-  <footer class="muted" id="footer"></footer>
+  <footer class="muted"><span id="footer"></span><span class="linked" id="linked"></span></footer>
 </main>
 <script nonce="${nonce}" src="${asset('plant.js')}"></script>
 </body>

@@ -38,6 +38,7 @@
 
   $('setup').addEventListener('click', () => vscode.postMessage({ type: 'setup' }));
   $('retry').addEventListener('click', () => vscode.postMessage({ type: 'retry' }));
+  $('connect-button').addEventListener('click', () => vscode.postMessage({ type: 'connect' }));
 
   window.addEventListener('message', (event) => {
     const message = event.data;
@@ -63,6 +64,14 @@
       setText('problem-title', model.problem.title);
       setText('problem-detail', model.problem.detail);
     }
+
+    const link = model.connection;
+    const needsConnect = Boolean(link && link.action);
+    garden.dataset.connect = needsConnect ? 'needed' : link ? 'connected' : 'none';
+    setText('connect-title', needsConnect ? link.title : '');
+    setText('connect-detail', needsConnect ? link.detail : '');
+    setText('connect-button', needsConnect ? link.action : '');
+    setText('linked', link && !needsConnect ? link.title : '');
 
     const plant = model.plant;
     if (!plant) {

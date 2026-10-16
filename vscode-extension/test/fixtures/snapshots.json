@@ -1,7 +1,7 @@
 {
   "fresh_seed": {
     "protocol": 1,
-    "version": "0.2.0",
+    "version": "0.2.1",
     "thinking": false,
     "active_requests": 0,
     "live_tokens_estimate": 0,
@@ -34,7 +34,7 @@
   },
   "idle_sprout": {
     "protocol": 1,
-    "version": "0.2.0",
+    "version": "0.2.1",
     "thinking": false,
     "active_requests": 0,
     "live_tokens_estimate": 0,
@@ -67,7 +67,7 @@
   },
   "thinking_sprout": {
     "protocol": 1,
-    "version": "0.2.0",
+    "version": "0.2.1",
     "thinking": true,
     "active_requests": 2,
     "live_tokens_estimate": 5000,
@@ -100,7 +100,7 @@
   },
   "bloom": {
     "protocol": 1,
-    "version": "0.2.0",
+    "version": "0.2.1",
     "thinking": false,
     "active_requests": 0,
     "live_tokens_estimate": 0,
@@ -133,7 +133,7 @@
   },
   "stage_up": {
     "protocol": 1,
-    "version": "0.2.0",
+    "version": "0.2.1",
     "thinking": false,
     "active_requests": 0,
     "live_tokens_estimate": 0,

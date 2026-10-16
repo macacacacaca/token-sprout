@@ -9,5 +9,8 @@
   "config.visibility.always": "一律顯示植物；Claude 思考時加上澆水進度。",
   "config.visibility.thinking": "只在 Claude 思考時顯示，與 Claude Code 狀態列相同。",
   "config.visibility.hidden": "不顯示狀態列項目（側邊欄面板仍可使用）。",
-  "config.showPile": "每顆單位都重複一次階段 emoji（`🌱🌱🌱 3/20`），而不是只顯示一次（`🌱 3/20`）。"
+  "config.showPile": "每顆單位都重複一次階段 emoji（`🌱🌱🌱 3/20`），而不是只顯示一次（`🌱 3/20`）。",
+  "command.connectClaudeCode": "連接 Claude Code",
+  "command.disconnectClaudeCode": "中斷 Claude Code 連接",
+  "config.suggestClaudeCodeConnection": "當 Claude Code 擴充套件的對話沒有經過 Token Sprout 時，提議連接它。選「**不再詢問**」會關閉此提議。"
 }

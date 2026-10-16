@@ -27,6 +27,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -250,6 +251,9 @@ def create_app(
                 "app": "token-sprout",
                 "version": __version__,
                 "port": listen_port,
+                # Lets `token-sprout stop` signal the shared proxy; trusted
+                # only together with a valid proof.
+                "pid": os.getpid(),
             }
             nonce = request.query_params.get("nonce")
             if nonce:

@@ -21,9 +21,10 @@ in the corner of the VS Code status bar and an illustrated sidebar.
   <img alt="How Token Sprout works: Claude Code talks to the Anthropic API through a local proxy that copies only token usage numbers into a private state file, which three read-only views display" src="docs/assets/how-it-works-light.svg">
 </picture>
 
-> **Status: `v0.2.0` released.** New in 0.2: a
-> [VS Code extension](#vs-code-extension) and redrawn artwork. The proxy is
-> unchanged since `v0.1.0`, whose release checks still apply: automated tests,
+> **Status: `v0.2.1` released.** New in 0.2: a
+> [VS Code extension](#vs-code-extension), redrawn artwork, and (0.2.1)
+> conversations from Claude Code's own VS Code extension feeding the plant.
+> Forwarding is unchanged since `v0.1.0`, whose release checks still apply: automated tests,
 > package builds, a clean `pipx install .`, and macOS real-session checks —
 > API-key and subscription-OAuth sessions, tool use, Esc cancellation, and a
 > manual direct-vs-proxy streaming comparison. The extension is covered by
@@ -178,14 +179,14 @@ ones.
   <img src="docs/assets/vscode-preview.png" width="600" alt="Token Sprout's VS Code sidebar in a dark and a light theme, with the status bar item below each">
 </p>
 
-The extension needs the CLI from step 1 at version **0.2.0 or newer**, with
+The extension needs the CLI from step 1 at version **0.2.1 or newer**, with
 Claude Code launched through Token Sprout as in step 2. Download
-`token-sprout-0.2.0.vsix` from the
-[v0.2.0 release](https://github.com/macacacacaca/token-sprout/releases/tag/v0.2.0)
+`token-sprout-0.2.1.vsix` from the
+[latest release](https://github.com/macacacacaca/token-sprout/releases/latest)
 and install it:
 
 ```bash
-code --install-extension token-sprout-0.2.0.vsix
+code --install-extension token-sprout-0.2.1.vsix
 ```
 
 Or open the Extensions view, choose **… → Install from VSIX…**, and pick the
@@ -205,6 +206,24 @@ The extension only reads. It runs `token-sprout watch --json`, a read-only
 stream of the same numbers the other views show, and displays it in English
 or Traditional Chinese to match VS Code. With Remote - SSH, WSL, or Dev
 Containers it runs where the workspace runs, so install the CLI there too.
+
+### Using Claude Code's VS Code extension?
+
+Conversations in the Claude Code panel start their own `claude`, so the shell
+integration from step 2 never sees them and the plant does not grow. Connect
+them once: run **Token Sprout: Connect Claude Code** from the Command Palette
+(Token Sprout also offers it). After you confirm, it sets Claude Code's
+`claudeCode.claudeProcessWrapper` setting to `token-sprout-claude`, which
+routes new conversations through the shared local proxy. Conversations that
+are already open keep running unchanged until they restart.
+
+- If the proxy cannot be verified or started — or you already use your own
+  `ANTHROPIC_BASE_URL`, Bedrock, Vertex, or Foundry — `token-sprout-claude`
+  starts Claude unchanged, without the plant.
+- While a process wrapper is set, Claude Code starts new conversations in the
+  permission mode you last picked in its panel (Manual if you never picked
+  one).
+- **Token Sprout: Disconnect Claude Code** removes the setting.
 
 ## What the installers change
 
@@ -237,9 +256,11 @@ claude --resume
 The managed function calls `token-sprout run -- <absolute Claude path>`. For
 that child process only, `run` sets the local API base URL and enables Claude
 Code's dynamic tool search when you have not chosen an explicit
-`ENABLE_TOOL_SEARCH` value. It starts the localhost proxy if needed and stops
-only a proxy it started. It never prints the command arguments, which may
-contain a private prompt.
+`ENABLE_TOOL_SEARCH` value. It starts the shared localhost proxy in the
+background if needed and leaves it running, because other terminals and VS
+Code conversations may be using it; `token-sprout stop` ends it. `run` never
+prints the command arguments, which may contain a private prompt, and writes
+its status lines to stderr.
 
 Useful commands:
 
@@ -247,6 +268,7 @@ Useful commands:
 token-sprout status       # one-shot plant and token summary
 token-sprout watch        # animated panel in another terminal
 token-sprout watch --json # read-only JSON lines (the VS Code extension uses this)
+token-sprout stop         # stop the shared background proxy
 token-sprout reset        # start again after confirmation
 ```
 
@@ -356,7 +378,12 @@ API endpoint Claude Code already uses.
   never parsed, logged, or persisted.
 - Forwarding uses raw bytes, preserves duplicate response headers, does not
   retry upstream errors, and does not wait for plant-state disk writes.
-- Before reusing a listener, `run` verifies a fresh, port-bound HMAC proof.
+- Before using a listener, `run` and `token-sprout-claude` verify a fresh,
+  port-bound HMAC proof; `token-sprout stop` signals only a proxy that passes
+  the same check.
+- `token-sprout-claude`, the editor wrapper, never reads, logs, or stores
+  credentials or arguments and writes only to stderr. When it cannot verify
+  or start the proxy, it starts Claude unchanged.
 - Request paths in logs have control characters escaped and are length-limited.
 
 Token Sprout keeps this private directory at mode `0700`; all files below are
@@ -376,7 +403,9 @@ Optional writes outside that directory happen only when you run an installer:
 - the `statusLine` object in `~/.claude/settings.json`.
 
 The VS Code extension makes no network requests and writes no files of its
-own; installing it only adds VS Code's copy of the extension.
+own; installing it only adds VS Code's copy of the extension. It changes VS
+Code settings only when you choose **Connect Claude Code**, **Disconnect
+Claude Code**, or **Don't ask again**.
 
 - It starts exactly one program, `token-sprout watch --json`, without a
   shell. The executable comes from absolute `PATH` entries, `~/.local/bin`,
@@ -440,6 +469,12 @@ Make sure the workspace is trusted, interact once or restart Claude Code, then
 run `token-sprout install-statusline` again. If the installation moved, this
 command discovers and writes its new absolute executable path.
 
+**The plant does not grow while I use Claude Code in VS Code**
+
+Run **Token Sprout: Connect Claude Code**, then start a new conversation in the
+Claude Code panel. New requests should appear in
+`~/.token-sprout/proxy.log` within seconds.
+
 **Claude cannot reach the API**
 
 Do not export `ANTHROPIC_BASE_URL` globally. Start a fresh terminal and launch
@@ -448,10 +483,14 @@ through plain `claude` after installing the integration. Check
 
 ## Uninstall
 
-Remove integrations before removing the executable:
+Remove integrations before removing the executable. If you connected Claude
+Code in VS Code, first run **Token Sprout: Disconnect Claude Code**; otherwise
+Claude Code would keep trying to start through the removed
+`token-sprout-claude`.
 
 ```bash
 code --uninstall-extension macacacacaca.token-sprout   # if you installed it
+token-sprout stop
 token-sprout uninstall-statusline
 token-sprout uninstall-claude
 pipx uninstall token-sprout

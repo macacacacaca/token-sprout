@@ -15,6 +15,13 @@ from token_sprout.proxy import HEALTH_PATH, create_app
 PORT = 18965  # uncommon port for the spawn test
 
 
+@pytest.fixture(autouse=True)
+def _stop_shared_proxy(sprout_home):
+    """`run` leaves the shared proxy running by design; never leak it."""
+    yield
+    main(["stop", "--port", str(PORT)])
+
+
 def test_health_endpoint_not_forwarded(sprout_home):
     state.init_home()
     upstream_called = {"hit": False}
@@ -29,10 +36,11 @@ def test_health_endpoint_not_forwarded(sprout_home):
 
     assert resp.status_code == 200
     assert resp.json()["app"] == "token-sprout"
+    assert resp.json()["pid"] == os.getpid()  # lets `stop` find the proxy
     assert upstream_called["hit"] is False  # answered locally, never proxied
 
 
-def test_run_spawns_proxy_wires_env_and_cleans_up(
+def test_run_shares_a_background_proxy_and_wires_env(
     sprout_home, tmp_path, monkeypatch, capsys
 ):
     out_file = tmp_path / "env.txt"
@@ -60,10 +68,21 @@ def test_run_spawns_proxy_wires_env_and_cleans_up(
         "tool_search": "true",
         "prompt": private_prompt,
     }
-    terminal_output = capsys.readouterr().out
-    assert private_prompt not in terminal_output
-    assert "arguments hidden" in terminal_output
-    # the proxy we spawned is gone after run exits
+    captured = capsys.readouterr()
+    # stdout belongs to the wrapped command: every status line is on stderr
+    assert captured.out == ""
+    assert "arguments hidden" in captured.err
+    assert private_prompt not in captured.out + captured.err
+    # the proxy outlives the session for other terminals and editor windows
+    health = httpx.get(f"http://127.0.0.1:{PORT}{HEALTH_PATH}", timeout=1.0).json()
+    assert health["app"] == "token-sprout"
+
+    # a second session reuses it instead of starting another
+    assert main(["run", "--port", str(PORT), "--", sys.executable, "-c", "pass"]) == 0
+    assert "Using the Token Sprout proxy" in capsys.readouterr().err
+    assert httpx.get(f"http://127.0.0.1:{PORT}{HEALTH_PATH}", timeout=1.0).json()["pid"] == health["pid"]
+
+    assert main(["stop", "--port", str(PORT)]) == 0
     with pytest.raises(httpx.HTTPError):
         httpx.get(f"http://127.0.0.1:{PORT}{HEALTH_PATH}", timeout=1.0)
 
@@ -82,8 +101,7 @@ def test_run_propagates_child_exit_code(sprout_home):
 
 
 def test_run_unknown_command(sprout_home, capsys):
-    # health check fails fast (nothing on the port yet) -> proxy spawns,
-    # then the bogus command is reported and the proxy is cleaned up
+    # the command is checked before any proxy is started
     code = main(["run", "--port", str(PORT), "--", "definitely-not-a-real-command-xyz"])
     assert code == 127
     assert "command not found" in capsys.readouterr().err
@@ -145,3 +163,71 @@ def test_port_occupied_by_non_http_listener(sprout_home):
         assert _port_occupied(port) is True
     finally:
         srv.close()
+
+
+def test_run_refuses_a_port_held_by_a_stranger(sprout_home, capsys):
+    import socket
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        code = main(["run", "--port", str(port), "--", sys.executable, "-c", "pass"])
+    finally:
+        srv.close()
+    assert code == 1
+    assert "isn't token-sprout" in capsys.readouterr().err
+
+
+def test_stop_without_a_proxy(sprout_home, capsys):
+    assert main(["stop", "--port", str(PORT)]) == 0
+    assert "No Token Sprout proxy" in capsys.readouterr().out
+
+
+def test_stop_leaves_a_stranger_alone(sprout_home, capsys):
+    import socket
+    import threading
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    port = srv.getsockname()[1]
+
+    def serve():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            conn.recv(1024)
+            conn.sendall(b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n")
+            conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    try:
+        assert main(["stop", "--port", str(port)]) == 1
+    finally:
+        srv.close()
+    assert "leaving it alone" in capsys.readouterr().err
+
+
+def test_background_proxy_fails_fast_on_a_taken_port(sprout_home):
+    import socket
+    import subprocess
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "token_sprout.cli", "proxy", "--port", str(port), "--background"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    finally:
+        srv.close()
+    assert result.returncode == 1
+    assert "cannot listen" in result.stderr

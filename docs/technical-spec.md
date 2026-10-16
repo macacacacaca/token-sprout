@@ -150,7 +150,15 @@ v0.1 不宣稱支援原生 Windows PowerShell/CMD；WSL2 端到端實機清單�
 gateway，而 proxy 能透明轉發 tool-reference 流量。Remote Control 在非 first-party
 base URL 下仍會被 Claude Code 停用；英文與繁中 README 都必須明確揭露此限制。
 `run` 的啟動提示只顯示 executable 名稱，不得回印其餘 CLI arguments，避免
-`claude "<prompt>"` 的 prompt 落入 terminal scrollback。
+`claude "<prompt>"` 的 prompt 落入 terminal scrollback；狀態訊息一律寫 stderr，
+stdout 只屬於被包裝的指令。
+
+**共用 proxy（v0.2.1 起）**：所有入口（`run`、§15.4 的 `token-sprout-claude`）共用
+同一個背景 proxy。需要時以 `proxy --background` 啟動（先綁定 port 再 double-fork
+脫離 session），之後**不再由啟動它的 session 關閉**——v0.1 的「只收掉自己拉起的
+proxy」在多個並行 session 下會讓先結束的 session 關掉別人正在用的 proxy。
+`token-sprout stop` 是唯一的關閉方式（或登出／重開機）。`run` 把 SIGTERM／SIGHUP
+轉給子行程，SIGINT 留給前景的 Claude。
 
 或手動模式：
 
@@ -370,9 +378,11 @@ GROWTH_STAGES   = ["seed", "sprout", "leaf", "bud"]   # 4 層 20:1 合成後開�
 ```bash
 token-sprout init            # 初始化 ~/.token-sprout/ 與 plant_state.json
 token-sprout proxy [--port 8000]   # 啟動 proxy（僅綁 127.0.0.1）
-token-sprout run -- <command>      # 底層／手動入口：自動確保 proxy 在跑，
+token-sprout run -- <command>      # 底層／手動入口：自動確保共用 proxy 在跑，
                                    # 將 ANTHROPIC_BASE_URL 只注入子行程
                                    # 例：token-sprout run -- claude
+token-sprout stop [--port 8000]    # v0.2.1：驗證 HMAC 身分後停止共用 proxy
+token-sprout-claude <claude> ...   # v0.2.1：給編輯器的 process wrapper（§15.4）
 token-sprout install-claude        # 一次性安裝 managed shell function；之後只打 claude
 token-sprout uninstall-claude      # 只移除上面的 managed block
 token-sprout watch           # 植物動畫 UI（完整版，獨立終端機）
@@ -424,7 +434,7 @@ plant_state.json」，因為現在還有 proxy.log、proxy.secret、state.lock�
 - **Proxy 沒有憑證概念**：auth headers 原樣透傳、不讀不記不存；同時支援 API key 與訂閱 OAuth。
 - **request/response body 不落地、不進 log**；只儲存 usage metadata 與時間戳。
 - **子行程啟動提示不回印 arguments**：只顯示 executable 名稱；初始 prompt、檔案路徑或其他 CLI arguments 不進 terminal scrollback。
-- **`run` 的 proxy 身份驗證（防跨使用者搶 port 竊取憑證）**：`~/.token-sprout/proxy.secret`（0600）+ health endpoint 的 port-bound HMAC challenge。proof 的 normative payload 是 `token-sprout-health-v1\0<configured-port>\0<nonce>`；`configured-port` 必須來自 proxy 啟動設定，不可信任 request 的 Host/header/query。health JSON 回傳 `app`、`version`、`port`、`proof`，`run` 同時驗 port 與 proof。如此其他 port 上的真 proxy 不能被當成 signing oracle 來冒充目標 listener。假 proxy 驗證失敗時，`run` 拒絕重用、不注入 `ANTHROPIC_BASE_URL`。同使用者的惡意 process 本就能讀你的 key/OAuth，屬威脅模型外。
+- **`run` 的 proxy 身份驗證（防跨使用者搶 port 竊取憑證）**：`~/.token-sprout/proxy.secret`（0600）+ health endpoint 的 port-bound HMAC challenge。proof 的 normative payload 是 `token-sprout-health-v1\0<configured-port>\0<nonce>`；`configured-port` 必須來自 proxy 啟動設定，不可信任 request 的 Host/header/query。health JSON 回傳 `app`、`version`、`port`、`pid`、`proof`，`run` 同時驗 port 與 proof；`pid` 只在 proof 通過時才被信任，供 `token-sprout stop` 送 SIGTERM。如此其他 port 上的真 proxy 不能被當成 signing oracle 來冒充目標 listener。假 proxy 驗證失敗時，`run` 拒絕重用、不注入 `ANTHROPIC_BASE_URL`。同使用者的惡意 process 本就能讀你的 key/OAuth，屬威脅模型外。
 - **state 寫入不阻塞轉發路徑**：proxy 主路徑只做 non-blocking 的 `writer.submit()` / `writer.submit_latest()`（O(1) queue operation），實際檔案寫入在背景 thread（即 spec §5.2 的 single writer）。符合「轉發路徑不得 await 植物邏輯」。
 - **response headers 完全透傳**：保留重複 header（set-cookie/warning/link 等），不壓扁成 dict。
 - **`--upstream` 是隱藏旗標**：預設只送 Anthropic；指向非官方 upstream 會在 stderr 印明顯警告（credential-routing footgun 防呆）。
@@ -478,7 +488,7 @@ token-sprout/
 
 | 檔案 | 職責 |
 |---|---|
-| `cli.py` | CLI entrypoint（含 `run --` wrapper） |
+| `cli.py` | CLI entrypoint（含 `run --` wrapper、`stop`、`token-sprout-claude`） |
 | `proxy.py` | 透明轉發：catch-all、raw bytes、tee、fail-open |
 | `usage_parser.py` | SSE 事件重組與 usage 擷取 |
 | `state.py` | single-writer state、filelock、atomic rename |
@@ -574,6 +584,14 @@ token-sprout/
 - [x] `scripts/build_art.py` 產生全部插畫；CI 以 `--check` 防止過期。
 - [x] 發布 `v0.2.0`（tag + GitHub Release，附 wheel、sdist、`.vsix`）。
 - [ ] 上架 Visual Studio Marketplace / Open VSX（需要 publisher 帳號，發布後處理）。
+
+#### v0.2.1（2026-10-16）
+
+- [x] 問題：使用 Claude Code **VS Code 擴充套件**的對話自己啟動 `claude`，不經
+  shell function，流量完全沒進 proxy，植物不會長。
+- [x] `token-sprout-claude` process wrapper ＋ extension 的「連接 Claude Code」
+  （§15.4）；以內附的 Claude Code 2.1.300 實測：請求經 proxy、植物確實進食。
+- [x] 共用背景 proxy 與 `token-sprout stop`（修正並行 session 互相關掉 proxy 的問題）。
 
 ---
 
@@ -761,7 +779,7 @@ v0.2 的目標是兌現 §6「真正的視窗右下角」：在 VS Code 狀態�
 - 側邊欄 webview：CSP 為 `default-src 'none'; img-src <cspSource>;
   style-src <cspSource>; script-src 'nonce-…'`，`localResourceRoots` 只有
   `media/`；資料只以 `textContent`、class 與 CSS custom property 呈現；webview
-  只能送出 `ready` / `setup` / `retry` 三種訊息。尊重 `prefers-reduced-motion`。
+  只能送出 `ready` / `setup` / `retry` / `connect`（v0.2.1）四種訊息。尊重 `prefers-reduced-motion`。
 - 不發出網路請求、沒有 telemetry、不寫任何檔案，也不提供會改動植物的指令（`reset`
   只留在 CLI）。
 - 在地化：英文與繁體中文（`vscode.l10n` bundle 與 `package.nls.*.json`）。
@@ -787,3 +805,36 @@ v0.2 的目標是兌現 §6「真正的視窗右下角」：在 VS Code 狀態�
   階段共用同一個陶盆，造型對應終端機 emoji（🌰🌱🪴🌷🌸），讓兩種顯示端看得出是
   同一株植物。
 - 終端機顯示端維持 emoji（§5.3）；插畫只用於 README 與 VS Code extension。
+
+### 15.4 連接 Claude Code 的 VS Code 擴充套件（v0.2.1，normative）
+
+Anthropic 的 Claude Code VS Code 擴充套件會自己啟動內附的 `claude`，shell
+function 看不到。它的 `claudeCode.claudeProcessWrapper`（machine scope）會以
+`<wrapper> <內附 claude 路徑> <參數…>` 啟動 wrapper；若沒有內附 binary，則只傳參數。
+
+- **`token-sprout-claude`**（`token_sprout.cli:claude_wrapper_main`，安裝時與
+  `token-sprout` 並列）：
+  - 第一個參數是絕對路徑時視為 Claude 執行檔；否則在前面補上 `PATH` 上的
+    `claude`，找不到則 exit 2。
+  - 繞過條件（照常直接啟動 Claude）：已設定 `ANTHROPIC_BASE_URL`；
+    `CLAUDE_CODE_USE_BEDROCK` / `_VERTEX` / `_FOUNDRY` 為真；`TOKEN_SPROUT_DISABLE`
+    為真；`TOKEN_SPROUT_PORT` 不是 1024–65535 的整數。
+  - 否則確保共用 proxy（預設 port 8000，`TOKEN_SPROUT_PORT` 可覆寫），**HMAC 驗證
+    通過**才注入 `ANTHROPIC_BASE_URL`（與 `ENABLE_TOOL_SEARCH` 預設值）。
+  - **Fail-open**：proxy 無法驗證或啟動、或任何非預期例外，一律照常啟動 Claude，
+    只在 stderr 留一行原因——Token Sprout 永遠不能讓 Claude Code 在 VS Code 裡打不開。
+  - 只寫 stderr（stdout 屬於擴充套件的 JSON 協定）；不印參數；以 `exec` 取代自己，
+    讓 stdio、訊號與 exit code 原封不動屬於 Claude。
+- **Token Sprout extension**：
+  - 指令「連接 Claude Code」：找出 `token-sprout-claude`（CLI 旁邊 → CLI symlink
+    目標旁邊 → `PATH` 絕對路徑 → `~/.local/bin`），以 **modal 對話框取得同意**後才把
+    `claudeCode.claudeProcessWrapper` 寫入使用者設定；若原本是別的 wrapper，對話框
+    必須說明會取代它。「中斷 Claude Code 連接」只在值確實是 `token-sprout-claude`
+    時移除。
+  - 偵測到 Claude Code 擴充套件已安裝但未連接、且資料流正常時，每個視窗最多提議
+    一次（「不再詢問」寫入 `tokenSprout.suggestClaudeCodeConnection: false`）；側邊欄
+    與狀態列 tooltip 顯示未連接提示。除了這三個使用者明確選擇的動作，extension
+    不修改任何設定。
+- 副作用揭露（README 必須說明）：設定 process wrapper 後，Claude Code 擴充套件在
+  沒有選過權限模式時以 Manual 開始新對話；已開啟的對話要重新開始才會改走 proxy；
+  移除 CLI 前必須先中斷連接，否則 Claude Code 會嘗試啟動不存在的 wrapper。

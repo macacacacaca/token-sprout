@@ -21,9 +21,10 @@ Token Sprout 是在本機運作的透明轉發 proxy。它只從 Anthropic API
   <img alt="Token Sprout 運作方式：Claude Code 經本機 proxy 連到 Anthropic API，proxy 只把 token 用量數字寫入私有 state 檔，再由三個唯讀畫面顯示" src="docs/assets/how-it-works-light.zh-TW.svg">
 </picture>
 
-> **狀態：`v0.2.0` 已發布。** 0.2 新增
-> [VS Code 擴充套件](#vs-code-擴充套件)並重繪全部美術。proxy 自 `v0.1.0` 起
-> 沒有變動，當時的發布檢查仍然適用：自動測試、套件建置、乾淨的
+> **狀態：`v0.2.1` 已發布。** 0.2 新增
+> [VS Code 擴充套件](#vs-code-擴充套件)、重繪全部美術；0.2.1 起，Claude Code
+> 自己的 VS Code 擴充套件裡的對話也會餵植物。轉發邏輯自 `v0.1.0` 起沒有變動，
+> 當時的發布檢查仍然適用：自動測試、套件建置、乾淨的
 > `pipx install .` 與 macOS 真實 session 檢查；內容包含 API key、訂閱 OAuth、
 > 工具呼叫、Esc 中斷，以及直連與 proxy 的手動串流比較。擴充套件有單元測試，
 > 並在 VS Code 內完成自動化整合測試。`pipx` 是正式安裝方式；Linux shell
@@ -168,13 +169,13 @@ workspace 才會執行 status line 指令；安裝後互動一次或重啟 Claud
   <img src="docs/assets/vscode-preview.png" width="600" alt="Token Sprout 的 VS Code 側邊欄在深色與淺色主題下的樣子，下方是狀態列項目">
 </p>
 
-擴充套件需要第 1 步安裝的 CLI 為 **0.2.0 以上**，並依第 2 步讓 Claude Code
+擴充套件需要第 1 步安裝的 CLI 為 **0.2.1 以上**，並依第 2 步讓 Claude Code
 經由 Token Sprout 啟動。從
-[v0.2.0 release](https://github.com/macacacacaca/token-sprout/releases/tag/v0.2.0)
-下載 `token-sprout-0.2.0.vsix` 後安裝：
+[最新 release](https://github.com/macacacacaca/token-sprout/releases/latest)
+下載 `token-sprout-0.2.1.vsix` 後安裝：
 
 ```bash
-code --install-extension token-sprout-0.2.0.vsix
+code --install-extension token-sprout-0.2.1.vsix
 ```
 
 也可以打開「延伸模組」檢視，選 **… → 從 VSIX 安裝…** 再選擇檔案。擴充套件
@@ -192,6 +193,20 @@ code --install-extension token-sprout-0.2.0.vsix
 唯讀資料流——並依 VS Code 介面語言以英文或繁體中文顯示。使用 Remote - SSH、
 WSL 或 Dev Containers 時，它會在 workspace 所在的那一端執行，因此 CLI 也要裝在
 那一端。
+
+### 使用 Claude Code 的 VS Code 擴充套件？
+
+Claude Code 面板裡的對話會自己啟動 `claude`，第 2 步的 shell 整合看不到它們，
+植物也就不會長。只要連接一次：從命令選擇區執行 **Token Sprout: 連接 Claude
+Code**（Token Sprout 也會主動提議）。確認後，它會把 Claude Code 的
+`claudeCode.claudeProcessWrapper` 設定成 `token-sprout-claude`，讓新的對話經過
+共用的本機 proxy。已經開著的對話維持原狀，直到重新開始。
+
+- proxy 無法驗證或啟動時——或你本來就使用自己的 `ANTHROPIC_BASE_URL`、Bedrock、
+  Vertex 或 Foundry——`token-sprout-claude` 會照常直接啟動 Claude，只是不養植物。
+- 設定了 process wrapper 時，Claude Code 新對話會使用你上次在面板選的權限模式
+  （從沒選過則是 Manual）。
+- **Token Sprout: 中斷 Claude Code 連接** 會移除這個設定。
 
 ## 安裝器會改動什麼？
 
@@ -223,9 +238,10 @@ claude --resume
 managed function 實際執行的是
 `token-sprout run -- <Claude 絕對路徑>`。`run` 只會在這個 Claude 子行程中設定
 本機 API base URL；如果你沒有自行設定 `ENABLE_TOOL_SEARCH`，它也會保持
-Claude Code 的動態工具搜尋功能。有需要才啟動 localhost proxy，並只關閉它自己
-啟動的 proxy。指令參數可能含有私人 prompt，因此 `run` 永遠不會把參數印在
-終端上。
+Claude Code 的動態工具搜尋功能。有需要時它會在背景啟動共用的 localhost proxy，
+並讓它繼續執行，因為其他終端機與 VS Code 對話可能正在使用；
+`token-sprout stop` 可以停止它。指令參數可能含有私人 prompt，因此 `run` 永遠
+不會把參數印在終端上，狀態訊息則一律寫到 stderr。
 
 常用指令：
 
@@ -233,6 +249,7 @@ Claude Code 的動態工具搜尋功能。有需要才啟動 localhost proxy，�
 token-sprout status       # 顯示一次植物與 token 摘要
 token-sprout watch        # 在另一個終端顯示動畫面板
 token-sprout watch --json # 唯讀 JSON 資料流（VS Code 擴充套件使用）
+token-sprout stop         # 停止共用的背景 proxy
 token-sprout reset        # 確認後重新開始
 ```
 
@@ -338,7 +355,10 @@ Anthropic API endpoint。
 - `x-api-key` 與 `authorization` header 原樣轉發，不解析、不記錄、不儲存。
 - 轉發保留 raw bytes 與重複 response header，不代替 client retry，也不會等待植物
   state 寫磁碟才繼續回應。
-- `run` 重用 listener 前，必須驗證新鮮、與 port 綁定的 HMAC proof。
+- `run` 與 `token-sprout-claude` 使用 listener 前，都會驗證新鮮、與 port 綁定的
+  HMAC proof；`token-sprout stop` 只會停止通過同樣驗證的 proxy。
+- 給編輯器用的 `token-sprout-claude` 不讀取、不記錄、不儲存憑證或參數，只寫
+  stderr；無法驗證或啟動 proxy 時，會照常直接啟動 Claude。
 - log 內的 request path 會轉義控制字元並限制長度，防止 log injection。
 
 Token Sprout 將本機資料夾固定為 `0700`，下列檔案都是 `0600`；從舊版升級
@@ -358,7 +378,8 @@ Token Sprout 將本機資料夾固定為 `0700`，下列檔案都是 `0600`；�
 - `~/.claude/settings.json` 的 `statusLine` 物件。
 
 VS Code 擴充套件不發出任何網路請求，也不寫入任何自己的檔案；安裝它只會讓
-VS Code 存放一份擴充套件本身。
+VS Code 存放一份擴充套件本身。只有在你選擇 **連接 Claude Code**、**中斷 Claude
+Code 連接** 或 **不再詢問** 時，它才會修改 VS Code 設定。
 
 - 它只啟動一個程式：`token-sprout watch --json`，且不經過 shell。執行檔來自
   `PATH` 中的絕對路徑、`~/.local/bin`，或限定本機層級的
@@ -413,6 +434,11 @@ Token Sprout 不會把憑證交給無法驗證的 listener。停止另一個服�
 `token-sprout install-statusline`。如果安裝路徑搬過，此指令會重新探測並寫入新的
 絕對路徑。
 
+**在 VS Code 用 Claude Code 時植物不會長**
+
+執行 **Token Sprout: 連接 Claude Code**，再到 Claude Code 面板開一個新對話。
+幾秒內 `~/.token-sprout/proxy.log` 應該就會出現新的請求紀錄。
+
 **Claude 無法連到 API**
 
 不要全域 export `ANTHROPIC_BASE_URL`。開新終端，確認完成 shell 整合後用一般的
@@ -420,10 +446,13 @@ Token Sprout 不會把憑證交給無法驗證的 listener。停止另一個服�
 
 ## 完整移除
 
-請先移除整合，再移除執行檔：
+請先移除整合，再移除執行檔。如果在 VS Code 連接過 Claude Code，請先執行
+**Token Sprout: 中斷 Claude Code 連接**；否則 Claude Code 會一直嘗試透過已被
+移除的 `token-sprout-claude` 啟動。
 
 ```bash
 code --uninstall-extension macacacacaca.token-sprout   # 有安裝擴充套件時
+token-sprout stop
 token-sprout uninstall-statusline
 token-sprout uninstall-claude
 pipx uninstall token-sprout

@@ -74,6 +74,15 @@ async function run() {
   await waitFor(() => api.statusBarText() === '🪴 1/20', seen, 10_000);
   console.log('ok notice clears:', api.statusBarText());
 
+  const commands = await vscode.commands.getCommands(true);
+  for (const id of ['tokenSprout.connectClaudeCode', 'tokenSprout.disconnectClaudeCode']) {
+    assert.ok(commands.includes(id), `${id} is registered`);
+  }
+  // The isolated profile has no Claude Code extension, so there is nothing
+  // to connect and no offer to make.
+  assert.equal(api.claudeCodeConnection(), 'unavailable');
+  console.log('ok claude code connection: unavailable without the extension');
+
   await vscode.workspace
     .getConfiguration('tokenSprout')
     .update('executablePath', '/nonexistent/token-sprout', vscode.ConfigurationTarget.Global);

@@ -2,7 +2,7 @@
   "name": "token-sprout",
   "displayName": "Token Sprout",
   "description": "%description%",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "macacacacaca",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -82,6 +82,16 @@
         "command": "tokenSprout.openSetupGuide",
         "title": "%command.openSetupGuide%",
         "category": "Token Sprout"
+      },
+      {
+        "command": "tokenSprout.connectClaudeCode",
+        "title": "%command.connectClaudeCode%",
+        "category": "Token Sprout"
+      },
+      {
+        "command": "tokenSprout.disconnectClaudeCode",
+        "title": "%command.disconnectClaudeCode%",
+        "category": "Token Sprout"
       }
     ],
     "configuration": {
@@ -112,6 +122,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "%config.showPile%"
+        },
+        "tokenSprout.suggestClaudeCodeConnection": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.suggestClaudeCodeConnection%"
         }
       }
     }

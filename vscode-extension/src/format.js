@@ -198,11 +198,34 @@ function transitionText(snap, t) {
 }
 
 /**
+ * The sidebar card (and tooltip hint) for the Claude Code connection.
+ * @param {import('./claudeCode').ConnectionState} state
+ * @param {Translate} t
+ */
+function connectionText(state, t) {
+  if (state === 'disconnected' || state === 'foreign') {
+    return {
+      state,
+      title: t('Claude Code in VS Code is not connected'),
+      detail: state === 'foreign'
+        ? t('Claude Code already starts through another process wrapper, so its conversations bypass Token Sprout.')
+        : t("Conversations started from the Claude Code extension don't feed the plant until you connect them."),
+      action: t('Connect'),
+    };
+  }
+  if (state === 'connected') {
+    return { state, title: t('Claude Code in VS Code: connected'), detail: '', action: '' };
+  }
+  return null;
+}
+
+/**
  * Hover text for the status bar item (plain Markdown, never trusted).
  * @param {Snapshot} snap
  * @param {Translate} t
+ * @param {import('./claudeCode').ConnectionState} [connection]
  */
-function tooltipMarkdown(snap, t) {
+function tooltipMarkdown(snap, t, connection = 'unavailable') {
   const view = snap.view;
   const growth = growthLines(snap, t);
   const totals = snap.totals;
@@ -225,6 +248,9 @@ function tooltipMarkdown(snap, t) {
     formatTokens(totals.cache_creation),
     formatTokens(totals.cache_read),
   ));
+  if (connection === 'disconnected' || connection === 'foreign') {
+    lines.push('', `⚠️ ${t('Claude Code in VS Code is not connected')} — ${t('run Token Sprout: Connect Claude Code')}`);
+  }
   lines.push('', `_${t('Click to open the plant view')}_`);
   return lines.join('\n');
 }
@@ -278,8 +304,9 @@ function problemText(status, t) {
  * @param {Snapshot | null} snap
  * @param {string | null} notice
  * @param {Translate} t
+ * @param {import('./claudeCode').ConnectionState} [connection]
  */
-function viewModel(status, snap, notice, t) {
+function viewModel(status, snap, notice, t, connection = 'unavailable') {
   const labels = {
     lifetime: t('Lifetime'),
     input: t('Input'),
@@ -293,8 +320,9 @@ function viewModel(status, snap, notice, t) {
     generation: snap ? t('Generation {0}', snap.view.generation) : '',
   };
   const problem = problemText(status, t);
+  const link = connectionText(connection, t);
   if (!snap || status.kind !== 'running') {
-    return { state: problem ? 'problem' : 'starting', labels, problem, plant: null, notice: null };
+    return { state: problem ? 'problem' : 'starting', labels, problem, plant: null, notice: null, connection: link };
   }
   const view = snap.view;
   const growth = growthLines(snap, t);
@@ -303,6 +331,7 @@ function viewModel(status, snap, notice, t) {
     labels,
     problem: null,
     notice,
+    connection: link,
     plant: {
       stage: view.stage,
       stageName: stageName(view.stage, t),
@@ -341,6 +370,7 @@ module.exports = {
   accessibleLabel,
   transitionText,
   problemText,
+  connectionText,
   viewModel,
   escapeMarkdown,
 };
